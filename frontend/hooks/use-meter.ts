@@ -2,12 +2,15 @@ import {
   MEASUREMENTS,
   crossCheck,
   toMeasurement,
+  type MeasurementId,
   type Snapshot,
 } from '@/lib/measurements';
 import type { MeterSource } from '@/lib/source';
 import * as React from 'react';
 
 const HISTORY_LENGTH = 90;
+/** After this many new readings in a row below the last valid one, trust the new values. */
+const RESET_AFTER_DECREASES = 3;
 
 export interface MeterState {
   snapshot: Snapshot;
@@ -27,22 +30,42 @@ export function useMeter(source: MeterSource, intervalMs: number): MeterState {
   const [state, setState] = React.useState<MeterState>(EMPTY);
   // Last VALID reading per measurement, so one bad read doesn't break the monotonic check.
   const lastValid = React.useRef<Snapshot>({});
+  // Consecutive new readings that came in below the last valid value, per counter.
+  const decreases = React.useRef<Partial<Record<MeasurementId, number>>>({});
+  const lastReadAt = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     let alive = true;
     setState(EMPTY);
     lastValid.current = {};
+    decreases.current = {};
+    lastReadAt.current = null;
 
     const tick = async () => {
       try {
         const { frame, readAt } = await source();
         if (!alive) return;
         const next: Snapshot = {};
+        // The backend repeats the latest reading until a new one arrives; only new ones count.
+        const isNew = readAt !== lastReadAt.current;
+        lastReadAt.current = readAt;
 
         for (const def of MEASUREMENTS) {
           const item = frame[def.id];
           if (!item) continue;
-          next[def.id] = toMeasurement(def, item.raw, item.unit, lastValid.current[def.id], readAt);
+          let m = toMeasurement(def, item.raw, item.unit, lastValid.current[def.id], readAt);
+          if (m.error === 'counter_decreased') {
+            const count = (decreases.current[def.id] ?? 0) + (isNew ? 1 : 0);
+            decreases.current[def.id] = count;
+            // Several lower readings in a row: the earlier, higher value was the bad one.
+            if (count >= RESET_AFTER_DECREASES) {
+              m = toMeasurement(def, item.raw, item.unit, undefined, readAt);
+              decreases.current[def.id] = 0;
+            }
+          } else {
+            decreases.current[def.id] = 0;
+          }
+          next[def.id] = m;
         }
         for (const id of crossCheck(next)) {
           next[id] = { ...next[id]!, valid: false, value: null, error: 'cross_check_failed' };
