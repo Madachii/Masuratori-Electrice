@@ -51,6 +51,7 @@ export const ERROR_LABEL: Record<ValidationError, string> = {
   wrong_unit: 'unitate greșită',
   out_of_range: 'în afara domeniului',
   counter_decreased: 'contor descrescut',
+  implausible_jump: 'salt imposibil',
   cross_check_failed: 'inconsistent',
   stale: 'expirat',
 };

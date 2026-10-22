@@ -12,7 +12,7 @@ import { Text } from '@/components/ui/text';
 import { useMeter } from '@/hooks/use-meter';
 import type { Measurement } from '@/lib/measurements';
 import { API_URL, createApiSource } from '@/lib/api';
-import { LIVE_METER, LOCATION, METERS } from '@/lib/meters';
+import { LIVE_METER, LOCATION, METERS, maxPowerW } from '@/lib/meters';
 import { createMockSource } from '@/lib/mock-meter';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
@@ -37,7 +37,7 @@ const freqHint = (m?: Measurement): Hint | undefined => {
 export default function Dashboard() {
   const [meter, setMeter] = React.useState(AVAILABLE[0]);
   const source = React.useMemo(() => (API_URL ? createApiSource() : createMockSource(meter)), [meter]);
-  const readings = useMeter(source, POLL_MS);
+  const readings = useMeter(source, POLL_MS, maxPowerW(meter));
   const s = readings.snapshot;
   const { width } = useWindowDimensions();
   const wide = width >= 900;

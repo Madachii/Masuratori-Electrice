@@ -7,6 +7,9 @@ export interface Meter {
   ratedCurrent: number; // A, used to scale the current bars
 }
 
+/** Most power a meter can carry: 3 phases × 230 V × rated current, plus 50 % for overload. */
+export const maxPowerW = (meter: Meter) => 1.5 * 3 * 230 * meter.ratedCurrent;
+
 export const LOCATION = 'UTCN · Centrul Universitar Nord Baia Mare';
 
 export const LIVE_METER: Meter = { id: 'pxr', name: 'Contor PXR', ratedCurrent: 100 };

@@ -26,7 +26,8 @@ export type MeasurementId =
   | 'DEMAND_ACTIVE' | 'DEMAND_REACTIVE' | 'DEMAND_APPARENT';
 
 export type ValidationError =
-  | 'not_finite' | 'wrong_unit' | 'out_of_range' | 'counter_decreased' | 'cross_check_failed' | 'stale';
+  | 'not_finite' | 'wrong_unit' | 'out_of_range' | 'counter_decreased' | 'implausible_jump'
+  | 'cross_check_failed' | 'stale';
 
 /** What the app stores and displays. */
 export interface Measurement {
@@ -103,25 +104,42 @@ export type Validation = { ok: true } | { ok: false; error: ValidationError };
 /** The previous reading of the same measurement, for the checks that compare over time. */
 export type PreviousReading = { raw: number; at: number };
 
+/** What the checks over time need besides the value itself. */
+export type ReadingContext = {
+  at: number;                // when this reading was taken, ms since epoch
+  previous?: PreviousReading;
+  maxPowerW?: number;        // the most the installation can draw; bounds how fast energy can grow
+};
+
+/** Smallest step of the energy registers; growth within it is never a jump. */
+const ENERGY_RESOLUTION = 0.001;
+
 /** Basic checks: does the value make sense on its own? */
 const BASIC_ERRORS: ValidationError[] = ['not_finite', 'wrong_unit', 'out_of_range'];
 
 /** Whether a reading is usable as the "previous reading" for the next comparison. */
 export const passedBasicChecks = (m: Measurement) => !m.error || !BASIC_ERRORS.includes(m.error);
 
-export function validate(def: MeasurementDef, raw: number, unit: string, previous?: PreviousReading): Validation {
+export function validate(def: MeasurementDef, raw: number, unit: string, ctx: ReadingContext): Validation {
   if (!Number.isFinite(raw)) return { ok: false, error: 'not_finite' };
   if (unit !== def.unit) return { ok: false, error: 'wrong_unit' };
   if (raw < def.min || raw > def.max) return { ok: false, error: 'out_of_range' };
-  // Compared with the reading just before, so a drop is flagged once and never locks the counter.
-  if (def.monotonic && previous && raw < previous.raw) return { ok: false, error: 'counter_decreased' };
+
+  const { previous, maxPowerW } = ctx;
+  if (def.monotonic && previous) {
+    // Compared with the reading just before, so a drop is flagged once and never locks the counter.
+    if (raw < previous.raw) return { ok: false, error: 'counter_decreased' };
+    // Energy (kWh) can't grow faster than the maximum power (kW) for the time that passed.
+    const hours = (ctx.at - previous.at) / 3_600_000;
+    if (maxPowerW && hours > 0 && raw - previous.raw > (maxPowerW / 1000) * hours + ENERGY_RESOLUTION) {
+      return { ok: false, error: 'implausible_jump' };
+    }
+  }
   return { ok: true };
 }
 
-export function toMeasurement(
-  def: MeasurementDef, raw: number, unit: string, previous?: PreviousReading, timestamp = Date.now(),
-): Measurement {
-  const check = validate(def, raw, unit, previous);
+export function toMeasurement(def: MeasurementDef, raw: number, unit: string, ctx: ReadingContext): Measurement {
+  const check = validate(def, raw, unit, ctx);
   return {
     id: def.id,
     quantity: def.quantity,
@@ -130,7 +148,7 @@ export function toMeasurement(
     value: check.ok ? raw : null,
     valid: check.ok,
     error: check.ok ? undefined : check.error,
-    timestamp,
+    timestamp: ctx.at,
   };
 }
 

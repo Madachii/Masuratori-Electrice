@@ -25,8 +25,11 @@ export interface MeterState {
 
 const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, polledAt: null, error: null };
 
-/** Polls `source` and validates every measurement. Starts over when `source` changes. */
-export function useMeter(source: MeterSource, intervalMs: number): MeterState {
+/**
+ * Polls `source` and validates every measurement. Starts over when `source` changes.
+ * `maxPowerW` is the most the meter can carry; energy growing faster than that is flagged.
+ */
+export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: number): MeterState {
   const [state, setState] = React.useState<MeterState>(EMPTY);
   // The previous reading of each measurement that made sense on its own; checks over time compare with it.
   const previous = React.useRef<Partial<Record<MeasurementId, PreviousReading>>>({});
@@ -54,7 +57,11 @@ export function useMeter(source: MeterSource, intervalMs: number): MeterState {
         for (const def of MEASUREMENTS) {
           const item = frame[def.id];
           if (!item) continue;
-          const m = toMeasurement(def, item.raw, item.unit, previous.current[def.id], readAt);
+          const m = toMeasurement(def, item.raw, item.unit, {
+            at: readAt,
+            previous: previous.current[def.id],
+            maxPowerW,
+          });
           if (passedBasicChecks(m)) previous.current[def.id] = { raw: m.raw, at: readAt };
           next[def.id] = m;
         }
@@ -84,7 +91,7 @@ export function useMeter(source: MeterSource, intervalMs: number): MeterState {
       alive = false;
       clearInterval(id);
     };
-  }, [source, intervalMs]);
+  }, [source, intervalMs, maxPowerW]);
 
   return state;
 }
