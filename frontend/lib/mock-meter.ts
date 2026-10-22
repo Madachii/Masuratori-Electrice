@@ -1,31 +1,32 @@
 /**
- * Simulated PXR10 for developing the UI without the backend.
- * It returns raw register words, so the app runs the same decode/validate path as with real data.
- * Every few reads it corrupts one register on purpose, to exercise the validation UI.
+ * Simulated backend, for developing the UI before the real one exists.
+ * It returns the same shape the backend will: the raw integer read for every measurement.
+ * Every few reads it corrupts one value on purpose, to exercise the validation UI.
  */
-import { REGISTER_BY_ID, type MeasurementId, type RegisterDef } from '@/lib/measurements';
+import { DEF_BY_ID, type MeasurementId } from '@/lib/measurements';
+import type { Meter } from '@/lib/meters';
 
-/** Raw 16-bit words per register, as the backend will return them. */
-export type RawFrame = Partial<Record<MeasurementId, number[]>>;
+/** Raw integer per measurement, as the backend will return it. */
+export type RawFrame = Partial<Record<MeasurementId, number>>;
 export type MeterSource = () => Promise<RawFrame>;
-
-function toWords(def: RegisterDef, value: number): number[] {
-  let n = BigInt(Math.round(value * def.scale));
-  const bits = BigInt(def.words * 16);
-  if (n < 0n) n += 1n << bits;
-  const out: number[] = [];
-  for (let k = def.words - 1; k >= 0; k--) out.push(Number((n >> BigInt(k * 16)) & 0xffffn));
-  return out;
-}
 
 const noise = (amp: number) => (Math.random() * 2 - 1) * amp;
 
+/** Stable number in [0, 1) derived from a string, so each meter gets its own profile. */
+function seed(text: string) {
+  let h = 0;
+  for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return (h % 1000) / 1000;
+}
+
 const GLITCHABLE: MeasurementId[] = ['I_L1', 'I_L2', 'I_L3', 'U_L1N', 'U_L2N', 'U_L3N', 'FREQ'];
 
-export function createMockSource(): MeterSource {
+export function createMockSource(meter: Meter): MeterSource {
+  const k = seed(meter.id);
+  const load = 0.3 + 0.5 * k; // fraction of the rated current
   let last = Date.now();
-  let whFwd = 18_432_716;
-  let vah = 20_118_340;
+  let whFwd = Math.round(2_000_000 + 40_000_000 * k);
+  let vah = Math.round(whFwd * 1.09);
   let demand: [number, number, number] | null = null;
   let peak: [number, number, number] = [0, 0, 0];
 
@@ -36,10 +37,12 @@ export function createMockSource(): MeterSource {
     const t = now / 1000;
 
     const uN = [0, 2.1, 4.2].map((ph) => 230 + 4 * Math.sin(t / 25 + ph) + noise(0.6));
-    const iL = [46, 58, 39].map((base, k) => base * (1 + 0.18 * Math.sin(t / 18 + k)) + noise(1.5));
-    const pf = 0.91 + 0.04 * Math.sin(t / 30);
+    const iL = [1, 1.25, 0.85].map(
+      (f, n) => meter.ratedCurrent * load * f * (1 + 0.18 * Math.sin(t / 18 + n)) + noise(0.02 * meter.ratedCurrent),
+    );
+    const pf = 0.9 + 0.06 * k + 0.03 * Math.sin(t / 30);
 
-    const s = uN.reduce((acc, u, k) => acc + u * iL[k], 0);
+    const s = uN.reduce((acc, u, n) => acc + u * iL[n], 0);
     const p = s * pf;
     const q = Math.sqrt(s * s - p * p);
 
@@ -63,26 +66,22 @@ export function createMockSource(): MeterSource {
       P_ACTIVE: p, P_REACTIVE: q, P_APPARENT: s,
       PF: pf,
       FREQ: 50 + 0.03 * Math.sin(t / 10) + noise(0.01),
-      E_ACTIVE_FWD_KWH: Math.floor(whFwd / 1000),
-      E_ACTIVE_REV_KWH: 0,
-      E_ACTIVE_COMB_KWH: Math.floor(whFwd / 1000),
-      E_APPARENT_KVAH: Math.floor(vah / 1000),
-      E_ACTIVE_FWD_WH: Math.floor(whFwd),
-      E_ACTIVE_REV_WH: 0,
-      E_ACTIVE_COMB_WH: Math.floor(whFwd),
-      E_APPARENT_VAH: Math.floor(vah),
+      E_ACTIVE_FWD: Math.floor(whFwd),
+      E_ACTIVE_REV: 0,
+      E_ACTIVE_COMB: Math.floor(whFwd),
+      E_APPARENT: Math.floor(vah),
       PEAK_ACTIVE: peak[0], PEAK_REACTIVE: peak[1], PEAK_APPARENT: peak[2],
       DEMAND_ACTIVE: demand[0], DEMAND_REACTIVE: demand[1], DEMAND_APPARENT: demand[2],
     };
 
     const frame: RawFrame = {};
     for (const [id, value] of Object.entries(values) as [MeasurementId, number][]) {
-      frame[id] = toWords(REGISTER_BY_ID[id], value);
+      frame[id] = Math.round(value * DEF_BY_ID[id].scale);
     }
 
+    // What a failed 32-bit read looks like: all bits set.
     if (Math.random() < 0.08) {
-      const id = GLITCHABLE[Math.floor(Math.random() * GLITCHABLE.length)];
-      frame[id] = frame[id]!.map(() => 0xffff);
+      frame[GLITCHABLE[Math.floor(Math.random() * GLITCHABLE.length)]] = 0xffffffff;
     }
 
     return frame;

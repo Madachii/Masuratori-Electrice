@@ -1,7 +1,6 @@
 import {
-  REGISTERS,
+  MEASUREMENTS,
   crossCheck,
-  decodeRaw,
   toMeasurement,
   type Snapshot,
 } from '@/lib/measurements';
@@ -18,19 +17,18 @@ export interface MeterState {
   error: string | null;
 }
 
-/** Polls `source`, decodes and validates every register. */
-export function useMeter(source: MeterSource, intervalMs = 2000): MeterState {
-  const [state, setState] = React.useState<MeterState>({
-    snapshot: {},
-    history: [],
-    updatedAt: null,
-    error: null,
-  });
-  // Last VALID reading per register, so one bad read doesn't break the monotonic check.
+const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, error: null };
+
+/** Polls `source`, scales and validates every measurement. Starts over when `source` changes. */
+export function useMeter(source: MeterSource, intervalMs: number): MeterState {
+  const [state, setState] = React.useState<MeterState>(EMPTY);
+  // Last VALID reading per measurement, so one bad read doesn't break the monotonic check.
   const lastValid = React.useRef<Snapshot>({});
 
   React.useEffect(() => {
     let alive = true;
+    setState(EMPTY);
+    lastValid.current = {};
 
     const tick = async () => {
       try {
@@ -39,10 +37,10 @@ export function useMeter(source: MeterSource, intervalMs = 2000): MeterState {
         const now = Date.now();
         const next: Snapshot = {};
 
-        for (const def of REGISTERS) {
-          const words = frame[def.id];
-          if (!words) continue;
-          next[def.id] = toMeasurement(def, decodeRaw(words, def), lastValid.current[def.id], now);
+        for (const def of MEASUREMENTS) {
+          const raw = frame[def.id];
+          if (raw === undefined) continue;
+          next[def.id] = toMeasurement(def, raw, lastValid.current[def.id], now);
         }
         for (const id of crossCheck(next)) {
           next[id] = { ...next[id]!, valid: false, value: null, error: 'cross_check_failed' };
@@ -77,7 +75,7 @@ export function useMeter(source: MeterSource, intervalMs = 2000): MeterState {
   return state;
 }
 
-/** Re-renders every `ms` so "x seconds ago" labels stay current. */
+/** Re-renders every `ms` so time labels stay current. */
 export function useNow(ms = 1000) {
   const [now, setNow] = React.useState(Date.now());
   React.useEffect(() => {

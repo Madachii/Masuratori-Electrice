@@ -1,8 +1,7 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { hex } from '@/lib/format';
-import { REGISTER_BY_ID, type Snapshot } from '@/lib/measurements';
+import type { Snapshot } from '@/lib/measurements';
 import { cn } from '@/lib/utils';
 import { View } from 'react-native';
 
@@ -10,12 +9,11 @@ const INT_DIGITS = 7;
 
 /** Combined active energy drawn like the drum register of an electricity meter. */
 export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapshot; large: boolean; className?: string }) {
-  const m = snapshot.E_ACTIVE_COMB_WH;
+  const m = snapshot.E_ACTIVE_COMB;
   const ok = m?.valid && m.value !== null;
   const wh = ok ? Math.floor(m.value!) : 0;
   const whole = ok ? String(Math.floor(wh / 1000)).padStart(INT_DIGITS, '0') : '–'.repeat(INT_DIGITS);
   const frac = ok ? String(wh % 1000).padStart(3, '0') : '–––';
-  const def = REGISTER_BY_ID.E_ACTIVE_COMB_WH;
 
   return (
     <Card className={cn('gap-5 p-5', className)}>
@@ -39,14 +37,10 @@ export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapsh
       </View>
 
       <View className="flex-row flex-wrap gap-x-8 gap-y-3 border-t border-border pt-4">
-        <SubReading label="Import" m={snapshot.E_ACTIVE_FWD_KWH} />
-        <SubReading label="Export" m={snapshot.E_ACTIVE_REV_KWH} />
-        <SubReading label="Aparentă" m={snapshot.E_APPARENT_KVAH} />
+        <SubReading label="Import" m={snapshot.E_ACTIVE_FWD} />
+        <SubReading label="Export" m={snapshot.E_ACTIVE_REV} />
+        <SubReading label="Aparentă" m={snapshot.E_APPARENT} />
       </View>
-
-      <Text className="font-mono text-[11px] text-muted-foreground">
-        reg. {hex(def.address)} · {def.words * 16} biți · raw {m ? m.raw.toLocaleString('ro-RO') : '—'} Wh
-      </Text>
     </Card>
   );
 }
