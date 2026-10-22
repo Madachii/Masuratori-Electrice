@@ -7,7 +7,20 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['SpaceGrotesk_600SemiBold'],
+        'display-bold': ['SpaceGrotesk_700Bold'],
+        mono: ['JetBrainsMono_500Medium'],
+        'mono-bold': ['JetBrainsMono_700Bold'],
+      },
       colors: {
+        ok: 'hsl(var(--ok))',
+        warn: 'hsl(var(--warn))',
+        phase: {
+          1: 'hsl(var(--phase-1))',
+          2: 'hsl(var(--phase-2))',
+          3: 'hsl(var(--phase-3))',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
