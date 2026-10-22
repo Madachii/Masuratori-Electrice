@@ -5,7 +5,7 @@ import { MeasurementList } from '@/components/meter/measurement-list';
 import { MeterSelect } from '@/components/meter/meter-select';
 import { ReadClock } from '@/components/meter/read-clock';
 import { SectionHeading } from '@/components/meter/reading';
-import { StatTile, type Hint } from '@/components/meter/stat-tile';
+import { StatStrip, type Hint } from '@/components/meter/stat-strip';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
@@ -39,7 +39,6 @@ export default function Dashboard() {
   const s = readings.snapshot;
   const { width } = useWindowDimensions();
   const wide = width >= 900;
-  const tile = wide ? 'flex-1' : 'basis-[47%] grow';
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
@@ -84,14 +83,17 @@ export default function Dashboard() {
 
           <View className="gap-4">
             <SectionHeading title="Rețea" />
-            <View className="flex-row flex-wrap gap-4">
-              <StatTile className={tile} label="Factor de putere" m={s.PF} hint={pfHint(s.PF)} />
-              <StatTile className={tile} label="Frecvență" m={s.FREQ} hint={freqHint(s.FREQ)} />
-              <StatTile className={tile} label="Putere reactivă" m={s.P_REACTIVE} />
-              <StatTile className={tile} label="Putere aparentă" m={s.P_APPARENT} />
-              <StatTile className={tile} label="Curent neutru" m={s.I_N} />
-              <StatTile className={tile} label="Curent la pământ" m={s.I_G} />
-            </View>
+            <StatStrip
+              wide={wide}
+              stats={[
+                { label: 'Factor de putere', m: s.PF, hint: pfHint(s.PF) },
+                { label: 'Frecvență', m: s.FREQ, hint: freqHint(s.FREQ) },
+                { label: 'Putere reactivă', m: s.P_REACTIVE },
+                { label: 'Putere aparentă', m: s.P_APPARENT },
+                { label: 'Curent neutru', m: s.I_N },
+                { label: 'Curent la pământ', m: s.I_G },
+              ]}
+            />
           </View>
 
           <View className="gap-4">

@@ -1,10 +1,8 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { DESCRIPTION, LABEL } from '@/lib/format';
 import { MEASUREMENTS, type MeasurementId, type Snapshot } from '@/lib/measurements';
-import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -42,14 +40,14 @@ export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: 
       {groups.length === 0 ? (
         <Text variant="muted">Nicio eroare în ultima citire.</Text>
       ) : (
-        <View className="flex-row flex-wrap gap-4">
+        <View className="flex-row flex-wrap gap-x-12 gap-y-8">
           {groups.map((g) => (
-            <Card key={g.title} className={cn('gap-0 p-0', wide ? 'min-w-[45%] flex-1' : 'w-full')}>
-              <Text className="px-4 pb-2 pt-4 font-display text-sm">{g.title}</Text>
-              {g.ids.map((id, i) => (
-                <Row key={id} id={id} snapshot={snapshot} last={i === g.ids.length - 1} />
+            <View key={g.title} className={wide ? 'min-w-[40%] flex-1' : 'w-full'}>
+              <Text className="pb-2 font-display text-base">{g.title}</Text>
+              {g.ids.map((id) => (
+                <Row key={id} id={id} snapshot={snapshot} />
               ))}
-            </Card>
+            </View>
           ))}
         </View>
       )}
@@ -57,10 +55,10 @@ export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: 
   );
 }
 
-function Row({ id, snapshot, last }: { id: MeasurementId; snapshot: Snapshot; last: boolean }) {
+function Row({ id, snapshot }: { id: MeasurementId; snapshot: Snapshot }) {
   const m = snapshot[id];
   return (
-    <View className={cn('flex-row items-center gap-3 px-4 py-3', !last && 'border-b border-border')}>
+    <View className="flex-row items-center gap-3 border-t border-border py-3">
       <View className="flex-1 gap-0.5">
         <Text className="text-sm">{LABEL[id]}</Text>
         <Text className="text-xs text-muted-foreground">{DESCRIPTION[id]}</Text>
