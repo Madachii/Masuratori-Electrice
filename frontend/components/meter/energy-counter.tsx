@@ -18,7 +18,7 @@ export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapsh
   return (
     <Card className={cn('justify-between gap-5 p-5', className)}>
       <View className="flex-row items-start justify-between gap-3">
-        <View className="gap-1">
+        <View className="flex-1 gap-1">
           <Text className="font-display text-lg">Energie activă combinată</Text>
           <Text variant="muted">Import + export, de la punerea în funcțiune</Text>
         </View>

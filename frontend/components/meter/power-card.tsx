@@ -21,7 +21,7 @@ export function PowerCard({
   return (
     <Card className={cn('gap-4 p-5', className)}>
       <View className="flex-row items-start justify-between gap-3">
-        <Text className="font-display text-lg">Putere activă</Text>
+        <Text className="flex-1 font-display text-lg">Putere activă</Text>
         <ErrorTag m={snapshot.P_ACTIVE} />
       </View>
       <Reading m={snapshot.P_ACTIVE} size="xl" />

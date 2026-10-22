@@ -49,7 +49,7 @@ export function PhaseCard({
 
       <View className="gap-3">
         <View className="flex-row items-end justify-between gap-2">
-          <View className="gap-0.5">
+          <View className="flex-1 gap-0.5">
             <Text className="text-xs text-muted-foreground">Tensiune fază–neutru</Text>
             <Reading m={voltage} size="lg" />
           </View>
@@ -60,7 +60,7 @@ export function PhaseCard({
 
       <View className="gap-3">
         <View className="flex-row items-end justify-between gap-2">
-          <View className="gap-0.5">
+          <View className="flex-1 gap-0.5">
             <Text className="text-xs text-muted-foreground">Curent</Text>
             <Reading m={current} size="md" />
           </View>
