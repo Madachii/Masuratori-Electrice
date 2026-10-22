@@ -4,7 +4,7 @@ import {
   toMeasurement,
   type Snapshot,
 } from '@/lib/measurements';
-import type { MeterSource } from '@/lib/mock-meter';
+import type { MeterSource } from '@/lib/source';
 import * as React from 'react';
 
 const HISTORY_LENGTH = 90;
@@ -13,13 +13,16 @@ export interface MeterState {
   snapshot: Snapshot;
   /** Active power in kW, oldest first, for the trend line. */
   history: number[];
+  /** When the meter was read (from the source). */
   updatedAt: number | null;
+  /** When we last asked the source, successfully; the countdown to the next poll starts here. */
+  polledAt: number | null;
   error: string | null;
 }
 
-const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, error: null };
+const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, polledAt: null, error: null };
 
-/** Polls `source`, scales and validates every measurement. Starts over when `source` changes. */
+/** Polls `source` and validates every measurement. Starts over when `source` changes. */
 export function useMeter(source: MeterSource, intervalMs: number): MeterState {
   const [state, setState] = React.useState<MeterState>(EMPTY);
   // Last VALID reading per measurement, so one bad read doesn't break the monotonic check.
@@ -32,15 +35,14 @@ export function useMeter(source: MeterSource, intervalMs: number): MeterState {
 
     const tick = async () => {
       try {
-        const frame = await source();
+        const { frame, readAt } = await source();
         if (!alive) return;
-        const now = Date.now();
         const next: Snapshot = {};
 
         for (const def of MEASUREMENTS) {
-          const raw = frame[def.id];
-          if (raw === undefined) continue;
-          next[def.id] = toMeasurement(def, raw, lastValid.current[def.id], now);
+          const item = frame[def.id];
+          if (!item) continue;
+          next[def.id] = toMeasurement(def, item.raw, item.unit, lastValid.current[def.id], readAt);
         }
         for (const id of crossCheck(next)) {
           next[id] = { ...next[id]!, valid: false, value: null, error: 'cross_check_failed' };
@@ -52,11 +54,13 @@ export function useMeter(source: MeterSource, intervalMs: number): MeterState {
         const p = next.P_ACTIVE;
         setState((prev) => ({
           snapshot: next,
+          // The backend returns the same reading until the reader sends a new one; count it once.
           history:
-            p?.valid && p.value !== null
+            readAt !== prev.updatedAt && p?.valid && p.value !== null
               ? [...prev.history, p.value / 1000].slice(-HISTORY_LENGTH)
               : prev.history,
-          updatedAt: now,
+          updatedAt: readAt,
+          polledAt: Date.now(),
           error: null,
         }));
       } catch (e) {

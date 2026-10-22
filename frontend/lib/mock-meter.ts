@@ -1,14 +1,12 @@
 /**
- * Simulated backend, for developing the UI before the real one exists.
- * It returns the same shape the backend will: the raw integer read for every measurement.
+ * Simulated backend, for developing the UI without the reader and the backend running.
+ * It returns the same shape as the real source: every value with its unit.
+ * Unlike the reader it also sends power, frequency and demand, so every part of the UI has data.
  * Every few reads it corrupts one value on purpose, to exercise the validation UI.
  */
 import { DEF_BY_ID, type MeasurementId } from '@/lib/measurements';
 import type { Meter } from '@/lib/meters';
-
-/** Raw integer per measurement, as the backend will return it. */
-export type RawFrame = Partial<Record<MeasurementId, number>>;
-export type MeterSource = () => Promise<RawFrame>;
+import type { MeterSource, RawFrame } from '@/lib/source';
 
 const noise = (amp: number) => (Math.random() * 2 - 1) * amp;
 
@@ -66,24 +64,27 @@ export function createMockSource(meter: Meter): MeterSource {
       P_ACTIVE: p, P_REACTIVE: q, P_APPARENT: s,
       PF: pf,
       FREQ: 50 + 0.03 * Math.sin(t / 10) + noise(0.01),
-      E_ACTIVE_FWD: Math.floor(whFwd),
+      E_ACTIVE_FWD: whFwd / 1000,
       E_ACTIVE_REV: 0,
-      E_ACTIVE_COMB: Math.floor(whFwd),
-      E_APPARENT: Math.floor(vah),
+      E_ACTIVE_COMB: whFwd / 1000,
+      E_APPARENT: vah / 1000,
       PEAK_ACTIVE: peak[0], PEAK_REACTIVE: peak[1], PEAK_APPARENT: peak[2],
       DEMAND_ACTIVE: demand[0], DEMAND_REACTIVE: demand[1], DEMAND_APPARENT: demand[2],
     };
 
     const frame: RawFrame = {};
     for (const [id, value] of Object.entries(values) as [MeasurementId, number][]) {
-      frame[id] = Math.round(value * DEF_BY_ID[id].scale);
+      // Energy keeps Wh resolution, like the meter register; the rest one decimal finer than shown.
+      const decimals = DEF_BY_ID[id].quantity.endsWith('Energy') ? 3 : DEF_BY_ID[id].decimals + 1;
+      frame[id] = { raw: Number(value.toFixed(decimals)), unit: DEF_BY_ID[id].unit };
     }
 
-    // What a failed 32-bit read looks like: all bits set.
+    // What a corrupted float read looks like: a huge, meaningless number.
     if (Math.random() < 0.08) {
-      frame[GLITCHABLE[Math.floor(Math.random() * GLITCHABLE.length)]] = 0xffffffff;
+      const id = GLITCHABLE[Math.floor(Math.random() * GLITCHABLE.length)];
+      frame[id] = { ...frame[id]!, raw: 3.4e38 };
     }
 
-    return frame;
+    return { frame, readAt: now };
   };
 }

@@ -11,7 +11,7 @@ const INT_DIGITS = 7;
 export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapshot; large: boolean; className?: string }) {
   const m = snapshot.E_ACTIVE_COMB;
   const ok = m?.valid && m.value !== null;
-  const wh = ok ? Math.floor(m.value!) : 0;
+  const wh = ok ? Math.round(m.value! * 1000) : 0;
   const whole = ok ? String(Math.floor(wh / 1000)).padStart(INT_DIGITS, '0') : '–'.repeat(INT_DIGITS);
   const frac = ok ? String(wh % 1000).padStart(3, '0') : '–––';
 

@@ -1,10 +1,10 @@
 /**
  * Measurement model for the meter readings.
  *
- * The backend reads the meter and sends, for every measurement, the raw integer it read.
- * The frontend only knows what each measurement means: its unit, its scale
- * (`value = raw / scale`) and the physically plausible range used for validation.
- * Register addresses and Modbus decoding are the backend's concern.
+ * The reader decodes the meter registers and the backend stores the values; the frontend
+ * receives each value with its unit. Here we only know what each measurement means:
+ * the unit we expect, how many decimals to show and the physically plausible range used
+ * for validation. Register addresses and Modbus decoding are the reader's concern.
  */
 
 // ---------- Types ----------
@@ -15,7 +15,7 @@ export type Quantity =
   | 'powerFactor' | 'frequency'
   | 'activeEnergy' | 'apparentEnergy';
 
-export type Unit = 'A' | 'V' | 'W' | 'Var' | 'VA' | 'Hz' | 'Wh' | 'VAh' | '';
+export type Unit = 'A' | 'V' | 'W' | 'Var' | 'VA' | 'Hz' | 'kWh' | 'kVAh' | '';
 
 export type MeasurementId =
   | 'I_L1' | 'I_L2' | 'I_L3' | 'I_G' | 'I_N'
@@ -26,7 +26,7 @@ export type MeasurementId =
   | 'DEMAND_ACTIVE' | 'DEMAND_REACTIVE' | 'DEMAND_APPARENT';
 
 export type ValidationError =
-  | 'not_finite' | 'out_of_range' | 'counter_decreased' | 'cross_check_failed' | 'stale';
+  | 'not_finite' | 'wrong_unit' | 'out_of_range' | 'counter_decreased' | 'cross_check_failed' | 'stale';
 
 /** What the app stores and displays. */
 export interface Measurement {
@@ -34,7 +34,7 @@ export interface Measurement {
   quantity: Quantity;
   unit: Unit;
   raw: number;               // exactly as received from the backend
-  value: number | null;      // raw / scale, or null when invalid
+  value: number | null;      // the validated value, or null when invalid
   valid: boolean;
   error?: ValidationError;
   timestamp: number;         // ms since epoch
@@ -44,8 +44,8 @@ export interface Measurement {
 export interface MeasurementDef {
   id: MeasurementId;
   quantity: Quantity;
-  unit: Unit;
-  scale: number;             // value = raw / scale
+  unit: Unit;                // the unit the value must arrive in
+  decimals: number;          // shown on screen
   min: number;               // plausible physical limits, in display units (tune per installation)
   max: number;
   monotonic?: boolean;       // energy counters never decrease
@@ -55,41 +55,41 @@ export interface MeasurementDef {
 
 const d = (
   id: MeasurementId, quantity: Quantity, unit: Unit,
-  scale: number, min: number, max: number, monotonic = false,
-): MeasurementDef => ({ id, quantity, unit, scale, min, max, monotonic });
+  decimals: number, min: number, max: number, monotonic = false,
+): MeasurementDef => ({ id, quantity, unit, decimals, min, max, monotonic });
 
 export const MEASUREMENTS: MeasurementDef[] = [
-  // Currents, 0.1 A resolution
-  d('I_L1', 'current', 'A', 10, 0, 10000),
-  d('I_L2', 'current', 'A', 10, 0, 10000),
-  d('I_L3', 'current', 'A', 10, 0, 10000),
-  d('I_N', 'current', 'A', 10, 0, 10000),
-  d('I_G', 'current', 'A', 10, 0, 10000),
-  // Voltages, 0.1 V resolution
-  d('U_L1N', 'voltage', 'V', 10, 0, 1000),
-  d('U_L2N', 'voltage', 'V', 10, 0, 1000),
-  d('U_L3N', 'voltage', 'V', 10, 0, 1000),
-  d('U_L1L2', 'voltage', 'V', 10, 0, 1000),
-  d('U_L2L3', 'voltage', 'V', 10, 0, 1000),
-  d('U_L3L1', 'voltage', 'V', 10, 0, 1000),
+  // Currents
+  d('I_L1', 'current', 'A', 1, 0, 10000),
+  d('I_L2', 'current', 'A', 1, 0, 10000),
+  d('I_L3', 'current', 'A', 1, 0, 10000),
+  d('I_N', 'current', 'A', 1, 0, 10000),
+  d('I_G', 'current', 'A', 1, 0, 10000),
+  // Voltages
+  d('U_L1N', 'voltage', 'V', 1, 0, 1000),
+  d('U_L2N', 'voltage', 'V', 1, 0, 1000),
+  d('U_L3N', 'voltage', 'V', 1, 0, 1000),
+  d('U_L1L2', 'voltage', 'V', 1, 0, 1000),
+  d('U_L2L3', 'voltage', 'V', 1, 0, 1000),
+  d('U_L3L1', 'voltage', 'V', 1, 0, 1000),
   // Power, PF, frequency
-  d('P_ACTIVE', 'activePower', 'W', 1, -1e8, 1e8),
-  d('P_REACTIVE', 'reactivePower', 'Var', 1, -1e8, 1e8),
-  d('P_APPARENT', 'apparentPower', 'VA', 1, 0, 1e8),
-  d('PF', 'powerFactor', '', 100, -1, 1),
-  d('FREQ', 'frequency', 'Hz', 10, 45, 65),
-  // Energy counters, Wh resolution
-  d('E_ACTIVE_COMB', 'activeEnergy', 'Wh', 1, 0, 1e13, true),
-  d('E_ACTIVE_FWD', 'activeEnergy', 'Wh', 1, 0, 1e13, true),
-  d('E_ACTIVE_REV', 'activeEnergy', 'Wh', 1, 0, 1e13, true),
-  d('E_APPARENT', 'apparentEnergy', 'VAh', 1, 0, 1e13, true),
+  d('P_ACTIVE', 'activePower', 'W', 0, -1e8, 1e8),
+  d('P_REACTIVE', 'reactivePower', 'Var', 0, -1e8, 1e8),
+  d('P_APPARENT', 'apparentPower', 'VA', 0, 0, 1e8),
+  d('PF', 'powerFactor', '', 2, -1, 1),
+  d('FREQ', 'frequency', 'Hz', 1, 45, 65),
+  // Energy counters
+  d('E_ACTIVE_COMB', 'activeEnergy', 'kWh', 2, 0, 1e10, true),
+  d('E_ACTIVE_FWD', 'activeEnergy', 'kWh', 2, 0, 1e10, true),
+  d('E_ACTIVE_REV', 'activeEnergy', 'kWh', 2, 0, 1e10, true),
+  d('E_APPARENT', 'apparentEnergy', 'kVAh', 2, 0, 1e10, true),
   // Demand and peak demand
-  d('DEMAND_ACTIVE', 'activePower', 'W', 1, 0, 1e8),
-  d('DEMAND_REACTIVE', 'reactivePower', 'Var', 1, 0, 1e8),
-  d('DEMAND_APPARENT', 'apparentPower', 'VA', 1, 0, 1e8),
-  d('PEAK_ACTIVE', 'activePower', 'W', 1, 0, 1e8),
-  d('PEAK_REACTIVE', 'reactivePower', 'Var', 1, 0, 1e8),
-  d('PEAK_APPARENT', 'apparentPower', 'VA', 1, 0, 1e8),
+  d('DEMAND_ACTIVE', 'activePower', 'W', 0, 0, 1e8),
+  d('DEMAND_REACTIVE', 'reactivePower', 'Var', 0, 0, 1e8),
+  d('DEMAND_APPARENT', 'apparentPower', 'VA', 0, 0, 1e8),
+  d('PEAK_ACTIVE', 'activePower', 'W', 0, 0, 1e8),
+  d('PEAK_REACTIVE', 'reactivePower', 'Var', 0, 0, 1e8),
+  d('PEAK_APPARENT', 'apparentPower', 'VA', 0, 0, 1e8),
 ];
 
 export const DEF_BY_ID = Object.fromEntries(
@@ -100,26 +100,26 @@ export const DEF_BY_ID = Object.fromEntries(
 
 export type Validation = { ok: true } | { ok: false; error: ValidationError };
 
-export function validate(def: MeasurementDef, raw: number, previous?: Measurement): Validation {
+export function validate(def: MeasurementDef, raw: number, unit: string, previous?: Measurement): Validation {
   if (!Number.isFinite(raw)) return { ok: false, error: 'not_finite' };
-  const value = raw / def.scale;
-  if (value < def.min || value > def.max) return { ok: false, error: 'out_of_range' };
-  if (def.monotonic && previous?.valid && previous.value !== null && value < previous.value) {
+  if (unit !== def.unit) return { ok: false, error: 'wrong_unit' };
+  if (raw < def.min || raw > def.max) return { ok: false, error: 'out_of_range' };
+  if (def.monotonic && previous?.valid && previous.value !== null && raw < previous.value) {
     return { ok: false, error: 'counter_decreased' };
   }
   return { ok: true };
 }
 
 export function toMeasurement(
-  def: MeasurementDef, raw: number, previous?: Measurement, timestamp = Date.now(),
+  def: MeasurementDef, raw: number, unit: string, previous?: Measurement, timestamp = Date.now(),
 ): Measurement {
-  const check = validate(def, raw, previous);
+  const check = validate(def, raw, unit, previous);
   return {
     id: def.id,
     quantity: def.quantity,
     unit: def.unit,
     raw,
-    value: check.ok ? raw / def.scale : null,
+    value: check.ok ? raw : null,
     valid: check.ok,
     error: check.ok ? undefined : check.error,
     timestamp,

@@ -48,14 +48,15 @@ export const DESCRIPTION: Partial<Record<MeasurementId, string>> = {
 
 export const ERROR_LABEL: Record<ValidationError, string> = {
   not_finite: 'citire invalidă',
+  wrong_unit: 'unitate greșită',
   out_of_range: 'în afara domeniului',
   counter_decreased: 'contor descrescut',
   cross_check_failed: 'inconsistent',
   stale: 'expirat',
 };
 
-// Power and energy are stored in base units; show them with a k prefix once they get large.
-const KILO: Partial<Record<Unit, string>> = { W: 'kW', Var: 'kvar', VA: 'kVA', Wh: 'kWh', VAh: 'kVAh' };
+// Power arrives in W; show it with a k prefix once it gets large.
+const KILO: Partial<Record<Unit, string>> = { W: 'kW', Var: 'kvar', VA: 'kVA' };
 const DISPLAY_UNIT: Partial<Record<Unit, string>> = { Var: 'var' };
 
 /** Romanian decimal comma. */
@@ -68,8 +69,7 @@ export function display(m: Measurement | undefined): { value: string; unit: stri
   const unit = DISPLAY_UNIT[m.unit] ?? m.unit;
   if (!m.valid || m.value === null) return { value: '—', unit: kilo ?? unit };
   if (kilo && Math.abs(m.value) >= 1000) return { value: num(m.value / 1000, 2), unit: kilo };
-  const decimals = Math.max(0, Math.round(Math.log10(def.scale)));
-  return { value: num(m.value, decimals), unit };
+  return { value: num(m.value, def.decimals), unit };
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
