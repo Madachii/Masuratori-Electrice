@@ -33,55 +33,52 @@ export function PhaseCard({
   className?: string;
 }) {
   return (
-    <Card className={cn('gap-0 overflow-hidden p-0', className)}>
-      <View className={cn('h-1', PHASE_BG[phase])} />
-      <View className="gap-5 p-5">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <View className={cn('size-3 rounded-sm', PHASE_BG[phase])} />
-            <Text className="font-display-bold text-lg">L{phase}</Text>
-          </View>
-          <View className="flex-row items-baseline gap-2">
-            <Text className="text-xs text-muted-foreground">
-              L{phase}–L{(phase % 3) + 1}
-            </Text>
-            <Reading m={lineVoltage} size="sm" />
-          </View>
+    <Card className={cn('gap-5 p-5', className)}>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2">
+          <View className={cn('size-3 rounded-sm', PHASE_BG[phase])} />
+          <Text className="font-display-bold text-lg">L{phase}</Text>
         </View>
-
-        <View className="gap-3">
-          <View className="flex-row items-end justify-between gap-2">
-            <View className="gap-0.5">
-              <Text className="text-xs text-muted-foreground">Tensiune fază–neutru</Text>
-              <Reading m={voltage} size="lg" />
-            </View>
-            <ErrorTag m={voltage} />
-          </View>
-          <VoltageScale value={voltage?.valid ? voltage.value : null} />
-        </View>
-
-        <View className="gap-3">
-          <View className="flex-row items-end justify-between gap-2">
-            <View className="gap-0.5">
-              <Text className="text-xs text-muted-foreground">Curent</Text>
-              <Reading m={current} size="md" />
-            </View>
-            <ErrorTag m={current} />
-          </View>
-          <View className="h-2 overflow-hidden rounded-full bg-muted">
-            {current?.valid && current.value !== null ? (
-              <View
-                className={cn('h-2 rounded-full', PHASE_BG[phase])}
-                style={{ width: `${pct(current.value, 0, ratedCurrent)}%` }}
-              />
-            ) : null}
-          </View>
+        <View className="flex-row items-baseline gap-2">
           <Text className="text-xs text-muted-foreground">
-            {current?.valid && current.value !== null
-              ? `${Math.round((current.value / ratedCurrent) * 100)}% din ${ratedCurrent} A nominal`
-              : `nominal ${ratedCurrent} A`}
+            L{phase}–L{(phase % 3) + 1}
           </Text>
+          <Reading m={lineVoltage} size="sm" />
         </View>
+      </View>
+
+      <View className="gap-3">
+        <View className="flex-row items-end justify-between gap-2">
+          <View className="gap-0.5">
+            <Text className="text-xs text-muted-foreground">Tensiune fază–neutru</Text>
+            <Reading m={voltage} size="lg" />
+          </View>
+          <ErrorTag m={voltage} />
+        </View>
+        <VoltageScale value={voltage?.valid ? voltage.value : null} />
+      </View>
+
+      <View className="gap-3">
+        <View className="flex-row items-end justify-between gap-2">
+          <View className="gap-0.5">
+            <Text className="text-xs text-muted-foreground">Curent</Text>
+            <Reading m={current} size="md" />
+          </View>
+          <ErrorTag m={current} />
+        </View>
+        <View className="h-2 overflow-hidden rounded-full bg-muted">
+          {current?.valid && current.value !== null ? (
+            <View
+              className={cn('h-2 rounded-full', PHASE_BG[phase])}
+              style={{ width: `${pct(current.value, 0, ratedCurrent)}%` }}
+            />
+          ) : null}
+        </View>
+        <Text className="text-xs text-muted-foreground">
+          {current?.valid && current.value !== null
+            ? `${Math.round((current.value / ratedCurrent) * 100)}% din ${ratedCurrent} A nominal`
+            : `nominal ${ratedCurrent} A`}
+        </Text>
       </View>
     </Card>
   );
