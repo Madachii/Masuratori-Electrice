@@ -7,15 +7,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { METERS, type Meter } from '@/lib/meters';
+import type { Meter } from '@/lib/meters';
 import { cn } from '@/lib/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function MeterSelect({
+  meters,
   value,
   onChange,
   className,
 }: {
+  meters: Meter[];
   value: Meter;
   onChange: (meter: Meter) => void;
   className?: string;
@@ -26,7 +28,7 @@ export function MeterSelect({
     <Select
       value={{ value: value.id, label: value.name }}
       onValueChange={(option) => {
-        const meter = METERS.find((m) => m.id === option?.value);
+        const meter = meters.find((m) => m.id === option?.value);
         if (meter) onChange(meter);
       }}>
       <SelectTrigger className={cn('h-11 sm:h-10', className)}>
@@ -37,7 +39,7 @@ export function MeterSelect({
         className="w-[260px] web:max-h-96">
         <SelectGroup>
           <SelectLabel>Contoare</SelectLabel>
-          {METERS.map((m) => (
+          {meters.map((m) => (
             <SelectItem key={m.id} value={m.id} label={m.name} />
           ))}
         </SelectGroup>

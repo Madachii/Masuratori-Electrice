@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import { useMeter } from '@/hooks/use-meter';
 import type { Measurement } from '@/lib/measurements';
-import { LOCATION, METERS } from '@/lib/meters';
+import { API_URL, createApiSource } from '@/lib/api';
+import { LIVE_METER, LOCATION, METERS } from '@/lib/meters';
 import { createMockSource } from '@/lib/mock-meter';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
@@ -19,6 +20,8 @@ import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const POLL_MS = 5000;
+// With a backend configured we show the one meter it serves; otherwise simulated meters.
+const AVAILABLE = API_URL ? [LIVE_METER] : METERS;
 
 const pfHint = (m?: Measurement): Hint | undefined => {
   if (!m?.valid || m.value === null) return undefined;
@@ -32,9 +35,8 @@ const freqHint = (m?: Measurement): Hint | undefined => {
 };
 
 export default function Dashboard() {
-  const [meter, setMeter] = React.useState(METERS[0]);
-  // Swap for a FastAPI-backed source when the backend is ready; it only has to return the raw value per measurement.
-  const source = React.useMemo(() => createMockSource(meter), [meter]);
+  const [meter, setMeter] = React.useState(AVAILABLE[0]);
+  const source = React.useMemo(() => (API_URL ? createApiSource() : createMockSource(meter)), [meter]);
   const readings = useMeter(source, POLL_MS);
   const s = readings.snapshot;
   const { width } = useWindowDimensions();
@@ -52,18 +54,25 @@ export default function Dashboard() {
               </View>
               <View className="flex-row items-center gap-2">
                 <View className={wide ? 'w-[260px]' : 'flex-1'}>
-                  <MeterSelect value={meter} onChange={setMeter} className="w-full" />
+                  <MeterSelect meters={AVAILABLE} value={meter} onChange={setMeter} className="w-full" />
                 </View>
                 <ThemeToggle />
               </View>
             </View>
             <View className={wide ? 'flex-row items-start gap-4' : 'gap-2'}>
               <View className={wide ? 'w-[380px]' : undefined}>
-                <ReadClock updatedAt={readings.updatedAt} intervalMs={POLL_MS} error={readings.error} />
+                <ReadClock
+                  updatedAt={readings.updatedAt}
+                  polledAt={readings.polledAt}
+                  intervalMs={POLL_MS}
+                  error={readings.error}
+                />
               </View>
-              <Badge variant="outline" className="self-start">
-                <Text>date simulate</Text>
-              </Badge>
+              {API_URL ? null : (
+                <Badge variant="outline" className="self-start">
+                  <Text>date simulate</Text>
+                </Badge>
+              )}
             </View>
           </View>
 

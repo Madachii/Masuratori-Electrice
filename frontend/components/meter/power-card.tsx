@@ -28,7 +28,9 @@ export function PowerCard({
       <View className="gap-1">
         <Sparkline data={history} />
         <Text className="text-xs text-muted-foreground">
-          ultimele {seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`}
+          {history.length === 0
+            ? 'fără date de putere'
+            : `ultimele ${seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`}`}
         </Text>
       </View>
       <View className="flex-row gap-8 border-t border-border pt-4">

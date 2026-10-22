@@ -30,6 +30,33 @@ This will start the Expo Dev Server. Open the app in:
 
 You can also scan the QR code using the [Expo Go](https://expo.dev/go) app on your device. This project fully supports running in Expo Go for quick testing on physical devices.
 
+## Backend
+
+Without configuration the app shows simulated data. To read from the FastAPI backend
+(`backend/` on the `app/backend` branch):
+
+1. Start the backend so other devices can reach it:
+
+   ```bash
+   cd backend
+   uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. Copy `.env.example` to `.env.local` and set the address:
+
+   ```bash
+   EXPO_PUBLIC_API_URL=http://192.168.1.20:8000
+   ```
+
+   On a phone use the laptop's IP address (`ip addr` / `ipconfig`); `localhost` there is the
+   phone itself. For the web version in the same browser, `http://localhost:8000` works.
+
+3. Restart `npm run dev` so Expo picks up the variable.
+
+The app polls `GET /api/readings/latest` every 5 s and maps the reader's field names
+(`intensity_l1`, `voltage_l1`, `active_energy_combined`, …) in `lib/api.ts`. Values the reader
+does not send yet are shown as `—`.
+
 ## Adding components
 
 You can add more reusable components using the CLI:
