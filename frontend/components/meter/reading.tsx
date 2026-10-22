@@ -43,13 +43,11 @@ export function ErrorTag({ m, className }: { m?: Measurement; className?: string
   );
 }
 
-export function SectionLabel({ index, title, right }: { index: string; title: string; right?: React.ReactNode }) {
+export function SectionHeading({ title, note }: { title: string; note?: string }) {
   return (
-    <View className="flex-row items-center gap-3">
-      <Text className="font-mono text-xs text-accent">{index}</Text>
-      <Text className="font-display text-xs uppercase tracking-[2px] text-muted-foreground">{title}</Text>
-      <View className="h-px flex-1 bg-border" />
-      {right}
+    <View className="flex-row flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <Text className="font-display text-xl tracking-tight">{title}</Text>
+      {note ? <Text className="text-sm text-muted-foreground">{note}</Text> : null}
     </View>
   );
 }

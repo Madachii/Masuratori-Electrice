@@ -4,7 +4,7 @@ import { PowerCard } from '@/components/meter/power-card';
 import { MeasurementList } from '@/components/meter/measurement-list';
 import { MeterSelect } from '@/components/meter/meter-select';
 import { ReadClock } from '@/components/meter/read-clock';
-import { SectionLabel } from '@/components/meter/reading';
+import { SectionHeading } from '@/components/meter/reading';
 import { StatTile, type Hint } from '@/components/meter/stat-tile';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge } from '@/components/ui/badge';
@@ -68,16 +68,13 @@ export default function Dashboard() {
             </View>
           </View>
 
-          <View className="gap-4">
-            <SectionLabel index="01" title="Energie și putere" />
-            <View className={cn('gap-4', wide && 'flex-row')}>
-              <EnergyCounter snapshot={s} large={wide} className={wide ? 'flex-[3]' : undefined} />
-              <PowerCard snapshot={s} history={readings.history} intervalMs={POLL_MS} className={wide ? 'flex-[2]' : undefined} />
-            </View>
+          <View className={cn('gap-4', wide && 'flex-row')}>
+            <EnergyCounter snapshot={s} large={wide} className={wide ? 'flex-[3]' : undefined} />
+            <PowerCard snapshot={s} history={readings.history} intervalMs={POLL_MS} className={wide ? 'flex-[2]' : undefined} />
           </View>
 
           <View className="gap-4">
-            <SectionLabel index="02" title="Faze" />
+            <SectionHeading title="Faze" note={`Nominal 230 V fază–neutru · ${meter.ratedCurrent} A`} />
             <View className={cn('gap-4', wide && 'flex-row')}>
               <PhaseCard phase={1} voltage={s.U_L1N} current={s.I_L1} lineVoltage={s.U_L1L2} ratedCurrent={meter.ratedCurrent} className={wide ? 'flex-1' : undefined} />
               <PhaseCard phase={2} voltage={s.U_L2N} current={s.I_L2} lineVoltage={s.U_L2L3} ratedCurrent={meter.ratedCurrent} className={wide ? 'flex-1' : undefined} />
@@ -86,7 +83,7 @@ export default function Dashboard() {
           </View>
 
           <View className="gap-4">
-            <SectionLabel index="03" title="Rețea" />
+            <SectionHeading title="Rețea" />
             <View className="flex-row flex-wrap gap-4">
               <StatTile className={tile} label="Factor de putere" m={s.PF} hint={pfHint(s.PF)} />
               <StatTile className={tile} label="Frecvență" m={s.FREQ} hint={freqHint(s.FREQ)} />
@@ -98,7 +95,7 @@ export default function Dashboard() {
           </View>
 
           <View className="gap-4">
-            <SectionLabel index="04" title="Toate mărimile" />
+            <SectionHeading title="Toate mărimile" />
             <MeasurementList snapshot={s} wide={wide} />
           </View>
         </View>
