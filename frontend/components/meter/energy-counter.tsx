@@ -16,7 +16,7 @@ export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapsh
   const frac = ok ? String(wh % 1000).padStart(3, '0') : '–––';
 
   return (
-    <Card className={cn('gap-5 p-5', className)}>
+    <Card className={cn('justify-between gap-5 p-5', className)}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="gap-1">
           <Text className="font-display text-lg">Energie activă combinată</Text>

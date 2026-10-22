@@ -57,8 +57,8 @@ export default function Dashboard() {
                 <ThemeToggle />
               </View>
             </View>
-            <View className={cn('gap-2', wide && 'flex-row items-center justify-between')}>
-              <View className={wide ? 'w-[420px]' : undefined}>
+            <View className={wide ? 'flex-row items-start gap-4' : 'gap-2'}>
+              <View className={wide ? 'w-[380px]' : undefined}>
                 <ReadClock updatedAt={readings.updatedAt} intervalMs={POLL_MS} error={readings.error} />
               </View>
               <Badge variant="outline" className="self-start">
