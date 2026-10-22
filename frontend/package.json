@@ -13,6 +13,7 @@
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@rn-primitives/portal": "~1.4.0",
+    "@rn-primitives/select": "^1.5.2",
     "@rn-primitives/separator": "^1.5.2",
     "@rn-primitives/slot": "^1.5.2",
     "class-variance-authority": "^0.7.1",
