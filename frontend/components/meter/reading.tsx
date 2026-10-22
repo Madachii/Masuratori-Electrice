@@ -34,10 +34,10 @@ export function Reading({ m, size = 'md', className }: { m?: Measurement; size?:
   );
 }
 
-export function ErrorTag({ m }: { m?: Measurement }) {
+export function ErrorTag({ m, className }: { m?: Measurement; className?: string }) {
   if (!m || m.valid || !m.error) return null;
   return (
-    <Badge variant="destructive" className="self-start">
+    <Badge variant="destructive" className={cn('self-start', className)}>
       <Text>{ERROR_LABEL[m.error]}</Text>
     </Badge>
   );
