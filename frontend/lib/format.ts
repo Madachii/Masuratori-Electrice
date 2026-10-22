@@ -35,34 +35,15 @@ export const LABEL: Record<MeasurementId, string> = {
   PEAK_APPARENT: 'Vârf cerere aparentă',
 };
 
-/** One line on what the measurement means, shown in the full list. */
-export const DESCRIPTION: Record<MeasurementId, string> = {
-  I_L1: 'Curentul prin faza 1',
-  I_L2: 'Curentul prin faza 2',
-  I_L3: 'Curentul prin faza 3',
-  I_N: 'Curentul prin neutru; crește când fazele sunt încărcate inegal',
+/** One line on what the measurement means, only where the name alone isn't enough. */
+export const DESCRIPTION: Partial<Record<MeasurementId, string>> = {
+  I_N: 'Crește când fazele sunt încărcate inegal',
   I_G: 'Curent scurs spre pământ; o valoare mare indică un defect de izolație',
-  U_L1N: 'Tensiunea dintre faza 1 și neutru',
-  U_L2N: 'Tensiunea dintre faza 2 și neutru',
-  U_L3N: 'Tensiunea dintre faza 3 și neutru',
-  U_L1L2: 'Tensiunea dintre fazele 1 și 2',
-  U_L2L3: 'Tensiunea dintre fazele 2 și 3',
-  U_L3L1: 'Tensiunea dintre fazele 3 și 1',
-  P_ACTIVE: 'Puterea consumată efectiv, pe toate cele trei faze',
-  P_REACTIVE: 'Putere schimbată cu motoarele și bobinele, fără lucru util',
-  P_APPARENT: 'Puterea totală cu care e încărcată instalația',
-  PF: 'Putere activă / putere aparentă; ideal cât mai aproape de 1',
-  FREQ: 'Frecvența rețelei; nominal 50 Hz',
-  E_ACTIVE_COMB: 'Energia activă totală, import + export',
-  E_ACTIVE_FWD: 'Energia activă consumată din rețea',
-  E_ACTIVE_REV: 'Energia activă livrată înapoi în rețea',
-  E_APPARENT: 'Energia aparentă totală',
-  DEMAND_ACTIVE: 'Puterea activă medie pe intervalul de cerere',
-  DEMAND_REACTIVE: 'Puterea reactivă medie pe intervalul de cerere',
-  DEMAND_APPARENT: 'Puterea aparentă medie pe intervalul de cerere',
-  PEAK_ACTIVE: 'Cea mai mare cerere activă înregistrată',
-  PEAK_REACTIVE: 'Cea mai mare cerere reactivă înregistrată',
-  PEAK_APPARENT: 'Cea mai mare cerere aparentă înregistrată',
+  P_REACTIVE: 'Schimbată cu motoarele și bobinele, fără lucru util',
+  P_APPARENT: 'Încărcarea totală a instalației',
+  PF: 'Activă / aparentă; ideal cât mai aproape de 1',
+  E_ACTIVE_COMB: 'Import + export',
+  E_ACTIVE_REV: 'Livrată înapoi în rețea',
 };
 
 export const ERROR_LABEL: Record<ValidationError, string> = {
