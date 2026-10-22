@@ -2,15 +2,15 @@ import {
   MEASUREMENTS,
   crossCheck,
   toMeasurement,
+  passedBasicChecks,
   type MeasurementId,
+  type PreviousReading,
   type Snapshot,
 } from '@/lib/measurements';
 import type { MeterSource } from '@/lib/source';
 import * as React from 'react';
 
 const HISTORY_LENGTH = 90;
-/** After this many new readings in a row below the last valid one, trust the new values. */
-const RESET_AFTER_DECREASES = 3;
 
 export interface MeterState {
   snapshot: Snapshot;
@@ -28,58 +28,45 @@ const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, polledAt
 /** Polls `source` and validates every measurement. Starts over when `source` changes. */
 export function useMeter(source: MeterSource, intervalMs: number): MeterState {
   const [state, setState] = React.useState<MeterState>(EMPTY);
-  // Last VALID reading per measurement, so one bad read doesn't break the monotonic check.
-  const lastValid = React.useRef<Snapshot>({});
-  // Consecutive new readings that came in below the last valid value, per counter.
-  const decreases = React.useRef<Partial<Record<MeasurementId, number>>>({});
+  // The previous reading of each measurement that made sense on its own; checks over time compare with it.
+  const previous = React.useRef<Partial<Record<MeasurementId, PreviousReading>>>({});
   const lastReadAt = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     let alive = true;
     setState(EMPTY);
-    lastValid.current = {};
-    decreases.current = {};
+    previous.current = {};
     lastReadAt.current = null;
 
     const tick = async () => {
       try {
         const { frame, readAt } = await source();
         if (!alive) return;
-        const next: Snapshot = {};
-        // The backend repeats the latest reading until a new one arrives; only new ones count.
-        const isNew = readAt !== lastReadAt.current;
+
+        // The backend repeats the latest reading until the reader sends a new one: nothing to redo.
+        if (readAt === lastReadAt.current) {
+          setState((prev) => ({ ...prev, polledAt: Date.now(), error: null }));
+          return;
+        }
         lastReadAt.current = readAt;
 
+        const next: Snapshot = {};
         for (const def of MEASUREMENTS) {
           const item = frame[def.id];
           if (!item) continue;
-          let m = toMeasurement(def, item.raw, item.unit, lastValid.current[def.id], readAt);
-          if (m.error === 'counter_decreased') {
-            const count = (decreases.current[def.id] ?? 0) + (isNew ? 1 : 0);
-            decreases.current[def.id] = count;
-            // Several lower readings in a row: the earlier, higher value was the bad one.
-            if (count >= RESET_AFTER_DECREASES) {
-              m = toMeasurement(def, item.raw, item.unit, undefined, readAt);
-              decreases.current[def.id] = 0;
-            }
-          } else {
-            decreases.current[def.id] = 0;
-          }
+          const m = toMeasurement(def, item.raw, item.unit, previous.current[def.id], readAt);
+          if (passedBasicChecks(m)) previous.current[def.id] = { raw: m.raw, at: readAt };
           next[def.id] = m;
         }
         for (const id of crossCheck(next)) {
           next[id] = { ...next[id]!, valid: false, value: null, error: 'cross_check_failed' };
         }
-        for (const m of Object.values(next)) {
-          if (m.valid) lastValid.current[m.id] = m;
-        }
 
         const p = next.P_ACTIVE;
         setState((prev) => ({
           snapshot: next,
-          // The backend returns the same reading until the reader sends a new one; count it once.
           history:
-            readAt !== prev.updatedAt && p?.valid && p.value !== null
+            p?.valid && p.value !== null
               ? [...prev.history, p.value / 1000].slice(-HISTORY_LENGTH)
               : prev.history,
           updatedAt: readAt,

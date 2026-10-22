@@ -100,18 +100,26 @@ export const DEF_BY_ID = Object.fromEntries(
 
 export type Validation = { ok: true } | { ok: false; error: ValidationError };
 
-export function validate(def: MeasurementDef, raw: number, unit: string, previous?: Measurement): Validation {
+/** The previous reading of the same measurement, for the checks that compare over time. */
+export type PreviousReading = { raw: number; at: number };
+
+/** Basic checks: does the value make sense on its own? */
+const BASIC_ERRORS: ValidationError[] = ['not_finite', 'wrong_unit', 'out_of_range'];
+
+/** Whether a reading is usable as the "previous reading" for the next comparison. */
+export const passedBasicChecks = (m: Measurement) => !m.error || !BASIC_ERRORS.includes(m.error);
+
+export function validate(def: MeasurementDef, raw: number, unit: string, previous?: PreviousReading): Validation {
   if (!Number.isFinite(raw)) return { ok: false, error: 'not_finite' };
   if (unit !== def.unit) return { ok: false, error: 'wrong_unit' };
   if (raw < def.min || raw > def.max) return { ok: false, error: 'out_of_range' };
-  if (def.monotonic && previous?.valid && previous.value !== null && raw < previous.value) {
-    return { ok: false, error: 'counter_decreased' };
-  }
+  // Compared with the reading just before, so a drop is flagged once and never locks the counter.
+  if (def.monotonic && previous && raw < previous.raw) return { ok: false, error: 'counter_decreased' };
   return { ok: true };
 }
 
 export function toMeasurement(
-  def: MeasurementDef, raw: number, unit: string, previous?: Measurement, timestamp = Date.now(),
+  def: MeasurementDef, raw: number, unit: string, previous?: PreviousReading, timestamp = Date.now(),
 ): Measurement {
   const check = validate(def, raw, unit, previous);
   return {
