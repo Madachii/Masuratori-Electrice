@@ -79,3 +79,36 @@ export const clock = (ms: number) => {
   const t = new Date(ms);
   return `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
 };
+
+const DAYS = ['dum.', 'lun.', 'mar.', 'mie.', 'joi', 'vin.', 'sâm.'];
+const MONTHS = ['ian.', 'feb.', 'mar.', 'apr.', 'mai', 'iun.', 'iul.', 'aug.', 'sept.', 'oct.', 'nov.', 'dec.'];
+
+const startOfDay = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+
+/** "azi, 20:57", "ieri, 20:57" or "joi, 22 oct., 20:57". */
+export function dateTime(ms: number, now = Date.now()) {
+  const t = new Date(ms);
+  const time = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  const days = Math.round((startOfDay(new Date(now)) - startOfDay(t)) / 86_400_000);
+  if (days === 0) return `azi, ${time}`;
+  if (days === 1) return `ieri, ${time}`;
+  return `${DAYS[t.getDay()]}, ${t.getDate()} ${MONTHS[t.getMonth()]}, ${time}`;
+}
+
+/** Romanian count: "o zi", "3 zile", "20 de zile". */
+function count(n: number, one: string, many: string) {
+  if (n === 1) return one;
+  const de = n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : '';
+  return `${n} ${de}${many}`;
+}
+
+/** How long ago, in the largest unit that fits: "acum 40 s", "acum 5 min", "acum 3 ore", "acum 2 zile". */
+export function ago(ms: number, now = Date.now()) {
+  const s = Math.max(0, Math.round((now - ms) / 1000));
+  if (s < 60) return `acum ${s} s`;
+  const min = Math.floor(s / 60);
+  if (min < 60) return `acum ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `acum ${count(h, 'o oră', 'ore')}`;
+  return `acum ${count(Math.floor(h / 24), 'o zi', 'zile')}`;
+}

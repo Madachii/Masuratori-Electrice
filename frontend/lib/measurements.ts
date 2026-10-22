@@ -152,8 +152,11 @@ export function toMeasurement(def: MeasurementDef, raw: number, unit: string, ct
   };
 }
 
-/** Readings older than this are shown as stale. */
-export const STALE_AFTER_MS = 15_000;
+/** While the reader runs it sends a reading every few seconds; this recent counts as live. */
+export const LIVE_WITHIN_MS = 60_000;
+
+/** The meter is read about once a week; a last reading older than this is flagged. */
+export const STALE_AFTER_MS = 8 * 24 * 3_600_000;
 
 export function isStale(m: Measurement, now = Date.now()): boolean {
   return now - m.timestamp > STALE_AFTER_MS;
