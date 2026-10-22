@@ -1,3 +1,4 @@
+import { TABULAR } from '@/components/meter/reading';
 import { Text } from '@/components/ui/text';
 import { useNow } from '@/hooks/use-meter';
 import { clock } from '@/lib/format';
@@ -18,7 +19,7 @@ export function ReadClock({
 
   if (updatedAt === null) {
     return (
-      <Text className="font-mono text-xs text-muted-foreground">
+      <Text className="text-sm text-muted-foreground">
         {error ? 'Datele nu au putut fi citite' : 'Se citesc datele…'}
       </Text>
     );
@@ -27,7 +28,7 @@ export function ReadClock({
   const age = now - updatedAt;
   if (error || age > STALE_AFTER_MS) {
     return (
-      <Text className="font-mono text-xs text-destructive">
+      <Text className="text-sm text-destructive" style={TABULAR}>
         Ultima citire la {clock(updatedAt)} · nicio citire nouă de {Math.round(age / 1000)} s
       </Text>
     );
@@ -37,7 +38,7 @@ export function ReadClock({
   const left = Math.max(0, Math.ceil((intervalMs - age) / 1000));
   return (
     <View className="gap-1.5">
-      <Text className="font-mono text-xs text-muted-foreground">
+      <Text className="text-sm text-muted-foreground" style={TABULAR}>
         Citit la {clock(updatedAt)} · următoarea citire în {left} s
       </Text>
       <View className="h-0.5 overflow-hidden rounded-full bg-muted">

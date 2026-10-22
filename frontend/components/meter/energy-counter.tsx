@@ -33,7 +33,7 @@ export function EnergyCounter({ snapshot, large, className }: { snapshot: Snapsh
         {frac.split('').map((d, i) => (
           <Digit key={i} d={d} large={large} fraction />
         ))}
-        <Text className={cn('ml-2 font-mono text-muted-foreground', large ? 'text-xl' : 'text-sm')}>kWh</Text>
+        <Text className={cn('ml-2 text-muted-foreground', large ? 'text-lg' : 'text-sm')}>kWh</Text>
       </View>
 
       <View className="flex-row flex-wrap gap-x-8 gap-y-3 border-t border-border pt-4">

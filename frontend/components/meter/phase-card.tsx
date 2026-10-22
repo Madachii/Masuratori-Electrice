@@ -42,7 +42,7 @@ export function PhaseCard({
             <Text className="font-display-bold text-lg">L{phase}</Text>
           </View>
           <View className="flex-row items-baseline gap-2">
-            <Text className="font-mono text-[11px] text-muted-foreground">
+            <Text className="text-xs text-muted-foreground">
               L{phase}–L{(phase % 3) + 1}
             </Text>
             <Reading m={lineVoltage} size="sm" />
@@ -76,7 +76,7 @@ export function PhaseCard({
               />
             ) : null}
           </View>
-          <Text className="font-mono text-[11px] text-muted-foreground">
+          <Text className="text-xs text-muted-foreground">
             {current?.valid && current.value !== null
               ? `${Math.round((current.value / ratedCurrent) * 100)}% din ${ratedCurrent} A nominal`
               : `nominal ${ratedCurrent} A`}
@@ -113,7 +113,7 @@ function VoltageScale({ value }: { value: number | null }) {
         {ticks.map((t) => (
           <Text
             key={t}
-            className="absolute -ml-4 w-8 text-center font-mono text-[10px] text-muted-foreground"
+            className="absolute -ml-4 w-8 text-center text-[10px] text-muted-foreground"
             style={{ left: `${pct(t, SCALE_MIN, SCALE_MAX)}%` }}>
             {Math.round(t)}
           </Text>

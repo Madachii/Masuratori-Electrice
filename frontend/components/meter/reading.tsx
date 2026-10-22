@@ -3,7 +3,10 @@ import { Text } from '@/components/ui/text';
 import { ERROR_LABEL, display } from '@/lib/format';
 import type { Measurement } from '@/lib/measurements';
 import { cn } from '@/lib/utils';
-import { View } from 'react-native';
+import { View, type TextStyle } from 'react-native';
+
+/** Same-width digits so values don't jitter as they update. */
+export const TABULAR: TextStyle = { fontVariant: ['tabular-nums'] };
 
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -26,10 +29,12 @@ export function Reading({ m, size = 'md', className }: { m?: Measurement; size?:
   const invalid = !m || !m.valid;
   return (
     <View className={cn('flex-row items-baseline gap-1.5', className)}>
-      <Text className={cn('font-mono-bold tracking-tight', VALUE_SIZE[size], invalid && 'text-muted-foreground')}>
+      <Text
+        className={cn('font-display-bold tracking-tight', VALUE_SIZE[size], invalid && 'text-muted-foreground')}
+        style={TABULAR}>
         {value}
       </Text>
-      {unit ? <Text className={cn('font-mono text-muted-foreground', UNIT_SIZE[size])}>{unit}</Text> : null}
+      {unit ? <Text className={cn('text-muted-foreground', UNIT_SIZE[size])}>{unit}</Text> : null}
     </View>
   );
 }

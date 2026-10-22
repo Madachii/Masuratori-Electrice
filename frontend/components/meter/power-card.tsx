@@ -27,7 +27,7 @@ export function PowerCard({
       <Reading m={snapshot.P_ACTIVE} size="xl" />
       <View className="gap-1">
         <Sparkline data={history} />
-        <Text className="font-mono text-[11px] text-muted-foreground">
+        <Text className="text-xs text-muted-foreground">
           ultimele {seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`}
         </Text>
       </View>
