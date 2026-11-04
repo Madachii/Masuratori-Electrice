@@ -8,6 +8,7 @@ import {
 import { UndoToast } from '@/components/dashboard/undo-toast';
 import { MeterSelect } from '@/components/meter/meter-select';
 import { ReadClock } from '@/components/meter/read-clock';
+import { LoadingContext } from '@/components/meter/reading';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,8 @@ export default function Dashboard() {
   const { width } = useWindowDimensions();
   const wide = width >= 900;
   const layout = useDashboardLayout();
+  // Before the first reading values pulse as placeholders; after an error they show dashes.
+  const loading = readings.updatedAt === null && !readings.error;
   const [editing, setEditing] = React.useState(false);
   // What the source sends: the real meter reads only some measurements, the simulator all of them.
   const available = React.useMemo(() => {
@@ -55,78 +58,81 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
-      <ScrollView contentContainerClassName={cn('px-4 pt-6 md:px-8', editing ? 'pb-32' : 'pb-16')}>
-        <View className="w-full max-w-[1200px] gap-8 self-center">
-          <View className="gap-4">
-            <View className={cn('gap-4', wide && 'flex-row items-end justify-between')}>
-              <View className="gap-1">
-                <Text className="text-sm text-muted-foreground">{LOCATION}</Text>
-                <Text className="font-display-bold text-3xl tracking-tight md:text-4xl">
-                  {meter.name}
-                </Text>
+      <LoadingContext.Provider value={loading}>
+        <ScrollView
+          contentContainerClassName={cn('px-4 pt-6 md:px-8', editing ? 'pb-32' : 'pb-16')}>
+          <View className="w-full max-w-[1200px] gap-8 self-center">
+            <View className="gap-4">
+              <View className={cn('gap-4', wide && 'flex-row items-end justify-between')}>
+                <View className="gap-1">
+                  <Text className="text-sm text-muted-foreground">{LOCATION}</Text>
+                  <Text className="font-display-bold text-3xl tracking-tight md:text-4xl">
+                    {meter.name}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <View className={wide ? 'w-[260px]' : 'flex-1'}>
+                    <MeterSelect
+                      meters={AVAILABLE}
+                      value={meter}
+                      onChange={setMeter}
+                      className="w-full"
+                    />
+                  </View>
+                  <Button
+                    variant={editing ? 'default' : 'outline'}
+                    size={wide ? 'default' : 'icon'}
+                    className={cn(!wide && 'rounded-full')}
+                    onPress={() => setEditing((e) => !e)}
+                    accessibilityLabel={
+                      editing ? 'Gata cu personalizarea' : 'Personalizează dashboard-ul'
+                    }>
+                    <Icon
+                      as={editing ? CheckIcon : SlidersHorizontalIcon}
+                      className={cn('size-4', !wide && 'size-5')}
+                    />
+                    {wide ? <Text>{editing ? 'Gata' : 'Personalizează'}</Text> : null}
+                  </Button>
+                  <ThemeToggle />
+                </View>
               </View>
-              <View className="flex-row items-center gap-2">
-                <View className={wide ? 'w-[260px]' : 'flex-1'}>
-                  <MeterSelect
-                    meters={AVAILABLE}
-                    value={meter}
-                    onChange={setMeter}
-                    className="w-full"
+              <View className={wide ? 'flex-row items-start gap-4' : 'gap-2'}>
+                <View className={wide ? 'w-[380px]' : undefined}>
+                  <ReadClock
+                    updatedAt={readings.updatedAt}
+                    polledAt={readings.polledAt}
+                    intervalMs={POLL_MS}
+                    error={readings.error}
                   />
                 </View>
-                <Button
-                  variant={editing ? 'default' : 'outline'}
-                  size={wide ? 'default' : 'icon'}
-                  className={cn(!wide && 'rounded-full')}
-                  onPress={() => setEditing((e) => !e)}
-                  accessibilityLabel={
-                    editing ? 'Gata cu personalizarea' : 'Personalizează dashboard-ul'
-                  }>
-                  <Icon
-                    as={editing ? CheckIcon : SlidersHorizontalIcon}
-                    className={cn('size-4', !wide && 'size-5')}
-                  />
-                  {wide ? <Text>{editing ? 'Gata' : 'Personalizează'}</Text> : null}
-                </Button>
-                <ThemeToggle />
+                {API_URL ? null : (
+                  <Badge variant="outline" className="self-start">
+                    <Text>date simulate</Text>
+                  </Badge>
+                )}
               </View>
             </View>
-            <View className={wide ? 'flex-row items-start gap-4' : 'gap-2'}>
-              <View className={wide ? 'w-[380px]' : undefined}>
-                <ReadClock
-                  updatedAt={readings.updatedAt}
-                  polledAt={readings.polledAt}
-                  intervalMs={POLL_MS}
-                  error={readings.error}
-                />
-              </View>
-              {API_URL ? null : (
-                <Badge variant="outline" className="self-start">
-                  <Text>date simulate</Text>
-                </Badge>
-              )}
-            </View>
-          </View>
 
-          {!layout.loaded ? null : editing ? (
-            <DashboardEditor layout={layout} snapshot={readings.snapshot} available={available} />
-          ) : layout.layout.modules.length === 0 ? (
-            <EmptyDashboard onEdit={() => setEditing(true)} />
-          ) : (
-            toRows(layout.layout.modules, wide).map((row) =>
-              row.length === 1 ? (
-                <ModuleBody key={row[0].key} module={row[0]} ctx={ctx} />
-              ) : (
-                <View key={row.map((m) => m.key).join('+')} className="flex-row gap-4">
-                  {row.map((m) => (
-                    <ModuleBody key={m.key} module={m} ctx={ctx} className={CARD_FLEX[m.type]} />
-                  ))}
-                </View>
+            {!layout.loaded ? null : editing ? (
+              <DashboardEditor layout={layout} snapshot={readings.snapshot} available={available} />
+            ) : layout.layout.modules.length === 0 ? (
+              <EmptyDashboard onEdit={() => setEditing(true)} />
+            ) : (
+              toRows(layout.layout.modules, wide).map((row) =>
+                row.length === 1 ? (
+                  <ModuleBody key={row[0].key} module={row[0]} ctx={ctx} />
+                ) : (
+                  <View key={row.map((m) => m.key).join('+')} className="flex-row gap-4">
+                    {row.map((m) => (
+                      <ModuleBody key={m.key} module={m} ctx={ctx} className={CARD_FLEX[m.type]} />
+                    ))}
+                  </View>
+                )
               )
-            )
-          )}
-        </View>
-      </ScrollView>
+            )}
+          </View>
+        </ScrollView>
+      </LoadingContext.Provider>
       <UndoToast undo={layout.undo} onUndo={layout.undoLast} onDismiss={layout.dismissUndo} />
     </SafeAreaView>
   );

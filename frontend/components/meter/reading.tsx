@@ -3,7 +3,8 @@ import { Text } from '@/components/ui/text';
 import { ERROR_LABEL, display } from '@/lib/format';
 import type { Measurement } from '@/lib/measurements';
 import { cn } from '@/lib/utils';
-import { View, type TextStyle } from 'react-native';
+import * as React from 'react';
+import { Animated, Platform, View, type TextStyle } from 'react-native';
 
 /** Same-width digits so values don't jitter as they update. */
 export const TABULAR: TextStyle = { fontVariant: ['tabular-nums'] };
@@ -23,8 +24,21 @@ const UNIT_SIZE: Record<Size, string> = {
   xl: 'text-lg',
 };
 
+/** Placeholder sizes close to the real value's, so nothing jumps when the first reading arrives. */
+const SKELETON_SIZE: Record<Size, string> = {
+  sm: 'h-4 w-14 my-0.5',
+  md: 'h-6 w-20 my-1',
+  lg: 'h-9 w-28 my-0.5',
+  xl: 'h-11 w-36 my-0.5',
+};
+
+/** True until the first reading arrives; values then show a pulsing placeholder instead of a dash. */
+export const LoadingContext = React.createContext(false);
+
 /** A value with its unit; shows a dash when the measurement failed validation. */
 export function Reading({ m, size = 'md', className }: { m?: Measurement; size?: Size; className?: string }) {
+  const loading = React.useContext(LoadingContext);
+  if (loading && !m) return <Skeleton className={cn(SKELETON_SIZE[size], className)} />;
   const { value, unit } = display(m);
   const invalid = !m || !m.valid;
   return (
@@ -36,6 +50,25 @@ export function Reading({ m, size = 'md', className }: { m?: Measurement; size?:
       </Text>
       {unit ? <Text className={cn('text-muted-foreground', UNIT_SIZE[size])}>{unit}</Text> : null}
     </View>
+  );
+}
+
+function Skeleton({ className }: { className?: string }) {
+  const opacity = React.useRef(new Animated.Value(0.5)).current;
+  React.useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [opacity]);
+  return (
+    <Animated.View style={{ opacity }} accessibilityLabel="Se încarcă">
+      <View className={cn('rounded-md bg-muted', className)} />
+    </Animated.View>
   );
 }
 
