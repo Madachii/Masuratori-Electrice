@@ -1,3 +1,4 @@
+import { Carousel, chunk } from '@/components/dashboard/carousel';
 import { EnergyCounter } from '@/components/meter/energy-counter';
 import { MeasurementList } from '@/components/meter/measurement-list';
 import { PhaseCard } from '@/components/meter/phase-card';
@@ -21,6 +22,9 @@ export type ModuleContext = {
   meter: Meter;
   wide: boolean;
 };
+
+/** On narrow screens a group shows two rows of two, the rest on further carousel pages. */
+const STATS_PER_PAGE = 4;
 
 /** How much of a shared row a card module takes on wide screens. */
 export const CARD_FLEX: Partial<Record<DashboardModule['type'], string>> = {
@@ -66,34 +70,49 @@ export function ModuleBody({
             title="Faze"
             note={`Nominal 230 V fază–neutru · ${ctx.meter.ratedCurrent} A`}
           />
-          <View className={cn('gap-4', wide && 'flex-row')}>
-            {phases.map((p) => (
-              <PhaseCard
-                key={p.phase}
-                {...p}
-                ratedCurrent={ctx.meter.ratedCurrent}
-                className={wide ? 'flex-1' : undefined}
-              />
-            ))}
-          </View>
+          {wide ? (
+            <View className="flex-row gap-4">
+              {phases.map((p) => (
+                <PhaseCard
+                  key={p.phase}
+                  {...p}
+                  ratedCurrent={ctx.meter.ratedCurrent}
+                  className="flex-1"
+                />
+              ))}
+            </View>
+          ) : (
+            <Carousel
+              label="Faze"
+              pages={phases.map((p) => (
+                <PhaseCard key={p.phase} {...p} ratedCurrent={ctx.meter.ratedCurrent} />
+              ))}
+            />
+          )}
         </View>
       );
     }
 
-    case 'stats':
+    case 'stats': {
+      const stats = m.ids.map((id) => ({ label: LABEL[id], m: s[id], hint: hintFor(id, s[id]) }));
       return (
         <View className={cn('gap-4', className)}>
           <SectionHeading title={m.title || 'Fără titlu'} />
           {m.ids.length === 0 ? (
             <Text variant="muted">Nicio mărime în acest grup.</Text>
+          ) : wide || stats.length <= STATS_PER_PAGE ? (
+            <StatStrip wide={wide} stats={stats} />
           ) : (
-            <StatStrip
-              wide={wide}
-              stats={m.ids.map((id) => ({ label: LABEL[id], m: s[id], hint: hintFor(id, s[id]) }))}
+            <Carousel
+              label={m.title || 'Fără titlu'}
+              pages={chunk(stats, STATS_PER_PAGE).map((page, i) => (
+                <StatStrip key={i} wide={false} stats={page} />
+              ))}
             />
           )}
         </View>
       );
+    }
 
     case 'list':
       return (
