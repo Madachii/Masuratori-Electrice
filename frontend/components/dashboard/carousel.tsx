@@ -7,6 +7,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 
 /** Space between pages while swiping, split on both sides of each page. */
@@ -17,7 +18,7 @@ const GUTTER = 8;
  * page. Used on narrow screens, so groups of cards don't make the page very long.
  */
 export function Carousel({ pages, label }: { pages: React.ReactNode[]; label: string }) {
-  const ref = React.useRef<ScrollView>(null);
+  const ref = React.useRef<ScrollViewInstance>(null);
   const [width, setWidth] = React.useState(0);
   const [page, setPage] = React.useState(0);
   const count = pages.length;
