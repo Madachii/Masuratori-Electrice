@@ -1,29 +1,29 @@
-"""POST measurements to the REST endpoint.
-
-The URL is filled in later. The failure branch is intentionally empty for now:
-once we know where failed readings should go, it becomes the write there.
-"""
+"""POST measurements to the backend."""
 
 from __future__ import annotations
+
+import logging
 
 import httpx
 
 from .models import Measurement
 
-API_URL = ""
+logger = logging.getLogger(__name__)
+
+API_URL = "http://localhost:8000/api/measurements"
 
 
-async def send(measurements: list[Measurement]) -> None:
-    if not API_URL:
-        return
+async def send(measurements: list[Measurement], url: str | None = None) -> bool:
+    target = url or API_URL
+    payload = [measurement.model_dump() for measurement in measurements]
+    logger.info("POST %s (%d values): %s", target, len(payload), payload)
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.post(
-                API_URL,
-                json=[measurement.model_dump() for measurement in measurements],
-            )
+            response = await client.post(target, json=payload)
             response.raise_for_status()
-    except Exception:
+        return True
+    except Exception as exc:
         # TODO: store the batch for retry once the failed-reads target is known.
-        pass
+        logger.warning("send failed: %s", exc)
+        return False

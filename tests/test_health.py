@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import struct
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from pymodbus.exceptions import ModbusException, ModbusIOException
 from pymodbus.pdu import ExceptionResponse
 
-from masuratori_electrice.health import _decode_ascii, _read
+from masuratori_electrice.health import check, decode_ascii
 from masuratori_electrice.measurements import decode_energy, decode_float, read_all
 from masuratori_electrice.models import HealthStatus, SerialSettings
 from masuratori_electrice.reader import read
+
+DEVICE_NAME = [0x4541, 0x544F, 0x4E20, 0x5058, 0x5232, 0x3500, 0x0000, 0x0000]
 
 
 class _Response:
@@ -40,49 +42,62 @@ class _StubClient:
         return self.response
 
 
+class _OpenClient:
+    def close(self) -> None:
+        pass
+
+
 class DecodeTests(unittest.TestCase):
     def test_device_name(self) -> None:
-        registers = [
-            0x4541,  # EA
-            0x544F,  # TO
-            0x4E20,  # N
-            0x5058,  # PX
-            0x5232,  # R2
-            0x3500,  # 5
-            0x0000,
-            0x0000,
-        ]
-        self.assertEqual(_decode_ascii(registers), "EATON PXR25")
+        self.assertEqual(decode_ascii(DEVICE_NAME), "EATON PXR25")
 
 
-class HealthReadTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        self.settings = SerialSettings(port="COM1")
+class HealthTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pxr25_is_ok(self) -> None:
+        async def fake_read(client, address, count, device_id=2):
+            return DEVICE_NAME
 
-    async def test_valid_response(self) -> None:
-        status, registers, _ = await _read(
-            _StubClient(_Response([1, 2])), self.settings, 4496, 2
-        )
-        self.assertIs(status, HealthStatus.OK)
-        self.assertEqual(registers, [1, 2])
+        with (
+            patch(
+                "masuratori_electrice.health.connect",
+                new=AsyncMock(return_value=_OpenClient()),
+            ),
+            patch("masuratori_electrice.health.read", new=fake_read),
+        ):
+            result = await check(SerialSettings(port="COM1"))
+
+        self.assertIs(result.status, HealthStatus.OK)
+        self.assertEqual(result.identity, "EATON PXR25")
+
+    async def test_pxr20_is_rejected(self) -> None:
+        async def fake_read(client, address, count, device_id=2):
+            return DEVICE_NAME[:5] + [0x3000, 0x0000, 0x0000]
+
+        with (
+            patch(
+                "masuratori_electrice.health.connect",
+                new=AsyncMock(return_value=_OpenClient()),
+            ),
+            patch("masuratori_electrice.health.read", new=fake_read),
+        ):
+            result = await check(SerialSettings(port="COM1"))
+
+        self.assertIs(result.status, HealthStatus.BAD_IDENTITY)
 
     async def test_timeout(self) -> None:
-        status, _, _ = await _read(
-            _StubClient(error=ModbusIOException("no response")),
-            self.settings,
-            4496,
-            2,
-        )
-        self.assertIs(status, HealthStatus.NO_RESPONSE)
+        with (
+            patch(
+                "masuratori_electrice.health.connect",
+                new=AsyncMock(return_value=_OpenClient()),
+            ),
+            patch(
+                "masuratori_electrice.health.read",
+                new=AsyncMock(side_effect=ModbusIOException("no response")),
+            ),
+        ):
+            result = await check(SerialSettings(port="COM1"))
 
-    async def test_exception_response(self) -> None:
-        status, _, _ = await _read(
-            _StubClient(ExceptionResponse(3, exception_code=2)),
-            self.settings,
-            4496,
-            2,
-        )
-        self.assertIs(status, HealthStatus.BAD_IDENTITY)
+        self.assertIs(result.status, HealthStatus.NO_RESPONSE)
 
 
 class ReaderTests(unittest.IsolatedAsyncioTestCase):
@@ -114,23 +129,17 @@ class ReadAllTests(unittest.IsolatedAsyncioTestCase):
         with patch("masuratori_electrice.measurements.read", new=fake_read):
             measurements = await read_all(None)
 
-        self.assertEqual(len(measurements), 7)
-        self.assertEqual(
-            [measurement.name for measurement in measurements],
-            [
-                "intensity_l1",
-                "intensity_l2",
-                "intensity_l3",
-                "voltage_l1",
-                "voltage_l2",
-                "voltage_l3",
-                "active_energy_combined",
-            ],
-        )
+        self.assertEqual(len(measurements), 26)
+        self.assertEqual(measurements[0].name, "intensity_l1")
         self.assertEqual(measurements[0].unit, "A")
-        self.assertEqual(measurements[3].unit, "V")
-        self.assertEqual(measurements[-1].unit, "kWh")
-        self.assertEqual(measurements[-1].raw, 1.0)
+        self.assertEqual(measurements[5].name, "voltage_l1_l2")
+        self.assertEqual(measurements[-1].name, "apparent_power_demand")
+        self.assertEqual(measurements[-1].unit, "VA")
+
+        by_name = {measurement.name: measurement for measurement in measurements}
+        self.assertEqual(by_name["power_factor"].unit, "")
+        self.assertEqual(by_name["frequency"].unit, "Hz")
+        self.assertEqual(by_name["active_energy_combined"].raw, 1.0)
 
 
 if __name__ == "__main__":

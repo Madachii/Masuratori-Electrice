@@ -31,7 +31,6 @@ class HealthStatus(IntEnum):
     PORT_ERROR = 1
     NO_RESPONSE = 2
     BAD_IDENTITY = 3
-    READ_ERROR = 4
 
 
 class HealthResult(BaseModel):
@@ -42,8 +41,9 @@ class HealthResult(BaseModel):
 
 
 class Measurement(BaseModel):
-    """One value as read from the device."""
+    """One value as read from one unit on the bus."""
 
     name: str
     raw: float
     unit: str
+    device_id: int | None = Field(default=None, ge=1, le=247)

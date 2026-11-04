@@ -13,7 +13,6 @@ dependencies = [
 
 [project.scripts]
 masuratori = "masuratori_electrice.cli:main"
-portcheck = "masuratori_electrice.portcheck:main"
 
 [build-system]
 requires = ["hatchling"]
