@@ -1,37 +1,19 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { MEASUREMENT_GROUPS } from '@/lib/dashboard';
 import { DESCRIPTION, LABEL } from '@/lib/format';
 import { MEASUREMENTS, type MeasurementId, type Snapshot } from '@/lib/measurements';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 import { View } from 'react-native';
 
-const GROUPS: { title: string; note?: string; ids: MeasurementId[] }[] = [
-  { title: 'Curenți', ids: ['I_L1', 'I_L2', 'I_L3', 'I_N', 'I_G'] },
-  { title: 'Tensiuni', ids: ['U_L1N', 'U_L2N', 'U_L3N', 'U_L1L2', 'U_L2L3', 'U_L3L1'] },
-  { title: 'Putere și rețea', ids: ['P_ACTIVE', 'P_REACTIVE', 'P_APPARENT', 'PF', 'FREQ'] },
-  { title: 'Energie', ids: ['E_ACTIVE_COMB', 'E_ACTIVE_FWD', 'E_ACTIVE_REV', 'E_APPARENT'] },
-  {
-    title: 'Cerere',
-    note: 'Media pe intervalul de cerere și cea mai mare valoare înregistrată',
-    ids: [
-      'DEMAND_ACTIVE',
-      'DEMAND_REACTIVE',
-      'DEMAND_APPARENT',
-      'PEAK_ACTIVE',
-      'PEAK_REACTIVE',
-      'PEAK_APPARENT',
-    ],
-  },
-];
-
 /** Every measurement with what it means, its value and whether it passed validation. */
 export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: boolean }) {
   const [onlyErrors, setOnlyErrors] = React.useState(false);
   const isError = (id: MeasurementId) => !!snapshot[id] && !snapshot[id]!.valid;
   const errors = MEASUREMENTS.filter((d) => isError(d.id)).length;
-  const groups = GROUPS.map((g) => ({
+  const groups = MEASUREMENT_GROUPS.map((g) => ({
     ...g,
     ids: onlyErrors ? g.ids.filter(isError) : g.ids,
   })).filter((g) => g.ids.length > 0);

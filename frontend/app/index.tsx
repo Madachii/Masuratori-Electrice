@@ -1,17 +1,12 @@
-import { EnergyCounter } from '@/components/meter/energy-counter';
-import { PhaseCard } from '@/components/meter/phase-card';
-import { PowerCard } from '@/components/meter/power-card';
-import { MeasurementList } from '@/components/meter/measurement-list';
+import { ModuleBody, CARD_FLEX, toRows, type ModuleContext } from '@/components/dashboard/module-body';
 import { MeterSelect } from '@/components/meter/meter-select';
 import { ReadClock } from '@/components/meter/read-clock';
-import { SectionHeading } from '@/components/meter/reading';
-import { StatStrip, type Hint } from '@/components/meter/stat-strip';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import { useMeter } from '@/hooks/use-meter';
-import type { Measurement } from '@/lib/measurements';
 import { API_URL, createApiSource } from '@/lib/api';
+import { DEFAULT_LAYOUT } from '@/lib/dashboard';
 import { LIVE_METER, LOCATION, METERS, maxPowerW } from '@/lib/meters';
 import { createMockSource } from '@/lib/mock-meter';
 import { cn } from '@/lib/utils';
@@ -23,24 +18,20 @@ const POLL_MS = 5000;
 // With a backend configured we show the one meter it serves; otherwise simulated meters.
 const AVAILABLE = API_URL ? [LIVE_METER] : METERS;
 
-const pfHint = (m?: Measurement): Hint | undefined => {
-  if (!m?.valid || m.value === null) return undefined;
-  const pf = Math.abs(m.value);
-  return pf >= 0.95 ? { text: 'Foarte bun', tone: 'ok' } : pf >= 0.9 ? { text: 'Acceptabil', tone: 'warn' } : { text: 'Scăzut, consum reactiv mare', tone: 'bad' };
-};
-
-const freqHint = (m?: Measurement): Hint | undefined => {
-  if (!m?.valid || m.value === null) return undefined;
-  return Math.abs(m.value - 50) <= 0.1 ? { text: 'În bandă ±0,1 Hz', tone: 'ok' } : { text: 'Abatere de la 50 Hz', tone: 'warn' };
-};
-
 export default function Dashboard() {
   const [meter, setMeter] = React.useState(AVAILABLE[0]);
   const source = React.useMemo(() => (API_URL ? createApiSource() : createMockSource(meter)), [meter]);
   const readings = useMeter(source, POLL_MS, maxPowerW(meter));
-  const s = readings.snapshot;
   const { width } = useWindowDimensions();
   const wide = width >= 900;
+  const layout = DEFAULT_LAYOUT;
+  const ctx: ModuleContext = {
+    snapshot: readings.snapshot,
+    history: readings.history,
+    intervalMs: POLL_MS,
+    meter,
+    wide,
+  };
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
@@ -76,39 +67,17 @@ export default function Dashboard() {
             </View>
           </View>
 
-          <View className={cn('gap-4', wide && 'flex-row')}>
-            <EnergyCounter snapshot={s} large={wide} className={wide ? 'flex-[3]' : undefined} />
-            <PowerCard snapshot={s} history={readings.history} intervalMs={POLL_MS} className={wide ? 'flex-[2]' : undefined} />
-          </View>
-
-          <View className="gap-4">
-            <SectionHeading title="Faze" note={`Nominal 230 V fază–neutru · ${meter.ratedCurrent} A`} />
-            <View className={cn('gap-4', wide && 'flex-row')}>
-              <PhaseCard phase={1} voltage={s.U_L1N} current={s.I_L1} lineVoltage={s.U_L1L2} ratedCurrent={meter.ratedCurrent} className={wide ? 'flex-1' : undefined} />
-              <PhaseCard phase={2} voltage={s.U_L2N} current={s.I_L2} lineVoltage={s.U_L2L3} ratedCurrent={meter.ratedCurrent} className={wide ? 'flex-1' : undefined} />
-              <PhaseCard phase={3} voltage={s.U_L3N} current={s.I_L3} lineVoltage={s.U_L3L1} ratedCurrent={meter.ratedCurrent} className={wide ? 'flex-1' : undefined} />
-            </View>
-          </View>
-
-          <View className="gap-4">
-            <SectionHeading title="Rețea" />
-            <StatStrip
-              wide={wide}
-              stats={[
-                { label: 'Factor de putere', m: s.PF, hint: pfHint(s.PF) },
-                { label: 'Frecvență', m: s.FREQ, hint: freqHint(s.FREQ) },
-                { label: 'Putere reactivă', m: s.P_REACTIVE },
-                { label: 'Putere aparentă', m: s.P_APPARENT },
-                { label: 'Curent neutru', m: s.I_N },
-                { label: 'Curent la pământ', m: s.I_G },
-              ]}
-            />
-          </View>
-
-          <View className="gap-4">
-            <SectionHeading title="Toate mărimile" />
-            <MeasurementList snapshot={s} wide={wide} />
-          </View>
+          {toRows(layout.modules, wide).map((row) =>
+            row.length === 1 ? (
+              <ModuleBody key={row[0].key} module={row[0]} ctx={ctx} />
+            ) : (
+              <View key={row.map((m) => m.key).join('+')} className="flex-row gap-4">
+                {row.map((m) => (
+                  <ModuleBody key={m.key} module={m} ctx={ctx} className={CARD_FLEX[m.type]} />
+                ))}
+              </View>
+            )
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

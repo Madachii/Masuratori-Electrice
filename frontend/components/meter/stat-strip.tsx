@@ -1,10 +1,9 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
 import { Text } from '@/components/ui/text';
+import type { Hint } from '@/lib/hints';
 import type { Measurement } from '@/lib/measurements';
 import { cn } from '@/lib/utils';
 import { View } from 'react-native';
-
-export type Hint = { text: string; tone: 'ok' | 'warn' | 'bad' };
 
 export type Stat = { label: string; m?: Measurement; hint?: Hint };
 
