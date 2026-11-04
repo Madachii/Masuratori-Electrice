@@ -61,6 +61,21 @@ export const MEASUREMENT_GROUPS: MeasurementGroup[] = [
   },
 ];
 
+/** Ready-made groups offered when adding a module; the user can change them afterwards. */
+export const STATS_TEMPLATES: { title: string; ids: MeasurementId[] }[] = [
+  { title: 'Curenți', ids: ['I_L1', 'I_L2', 'I_L3', 'I_N'] },
+  { title: 'Tensiuni fază–neutru', ids: ['U_L1N', 'U_L2N', 'U_L3N'] },
+  { title: 'Tensiuni de linie', ids: ['U_L1L2', 'U_L2L3', 'U_L3L1'] },
+  { title: 'Puteri', ids: ['P_ACTIVE', 'P_REACTIVE', 'P_APPARENT'] },
+  { title: 'Calitatea energiei', ids: ['PF', 'FREQ', 'I_N', 'I_G'] },
+  { title: 'Energie', ids: ['E_ACTIVE_FWD', 'E_ACTIVE_REV', 'E_APPARENT'] },
+  { title: 'Cerere', ids: ['DEMAND_ACTIVE', 'DEMAND_REACTIVE', 'DEMAND_APPARENT'] },
+  { title: 'Vârfuri de cerere', ids: ['PEAK_ACTIVE', 'PEAK_REACTIVE', 'PEAK_APPARENT'] },
+];
+
+/** Most measurements one group holds; past this a group stops being readable at a glance. */
+export const MAX_STATS = 12;
+
 // ---------- Layouts ----------
 
 export const LAYOUT_VERSION = 1;

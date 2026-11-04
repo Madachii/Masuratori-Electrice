@@ -83,7 +83,7 @@ export function ModuleBody({
     case 'stats':
       return (
         <View className={cn('gap-4', className)}>
-          <SectionHeading title={m.title} />
+          <SectionHeading title={m.title || 'Fără titlu'} />
           {m.ids.length === 0 ? (
             <Text variant="muted">Nicio mărime în acest grup.</Text>
           ) : (
