@@ -17,6 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import * as React from 'react';
+import { Platform } from 'react-native';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -37,6 +38,12 @@ export default function RootLayout() {
   React.useEffect(() => {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
+
+  // On web the colors come from the `dark` class; follow the scheme, including the system's at start.
+  React.useEffect(() => {
+    if (Platform.OS === 'web')
+      document.documentElement.classList.toggle('dark', colorScheme === 'dark');
+  }, [colorScheme]);
 
   if (!loaded && !error) return null;
 

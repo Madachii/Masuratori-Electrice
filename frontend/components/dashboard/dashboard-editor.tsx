@@ -75,7 +75,7 @@ export function DashboardEditor({
                 accessibilityState={{ checked: active }}
                 className={cn(
                   'min-w-[220px] flex-1 gap-1 rounded-lg border p-4 active:bg-accent web:hover:bg-accent/50',
-                  active ? 'border-foreground bg-card' : 'border-border'
+                  active ? 'border-primary bg-primary-soft' : 'border-border bg-card'
                 )}>
                 <View className="flex-row items-center justify-between gap-2">
                   <Text className="font-display text-base">{p.title}</Text>

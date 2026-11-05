@@ -8,7 +8,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 export function Sparkline({ data, height = 64 }: { data: number[]; height?: number }) {
   const [width, setWidth] = React.useState(0);
   const { colorScheme } = useColorScheme();
-  const color = THEME[colorScheme ?? 'light'].accent;
+  const color = THEME[colorScheme ?? 'light'].primary;
 
   let chart = null;
   if (width > 0 && data.length > 1) {
