@@ -54,14 +54,15 @@ Runs the health check once, then reads 26 values: currents `I_L1..I_L3, I_N,
 I_G`; voltages `U_L1L2..U_L3L1` and `U_L1N..U_L3N`; active, reactive and
 apparent power; power factor; frequency; forward, reverse and combined active
 energy plus apparent energy; peak and demand power. Each value becomes a
-`Measurement(name, raw, unit, device_id, counter_id)` and the batch is POSTed
-once.
+`Measurement(name, raw, unit, device_id)` and the batch is POSTed once.
 
 Before reading the values, the reader also reads the factory serial number
-(0x11C0, 32 ASCII characters) and sends it as `counter_id`. Unlike `device_id`,
-which is only the Modbus slave address and can change, the serial identifies the
-counter in the backend and frontend. If a unit reports no serial, `counter_id`
-is omitted.
+(0x11C0, 32 ASCII characters) and uses it as the backend counter code. Unlike
+`device_id`, which is only the Modbus slave address and can change, the serial
+identifies the counter in the backend and frontend. The reader registers the
+counter if it is new, then POSTs to
+`/api/counters/{code}/measurements`. If a unit reports no serial, the fallback
+code is `pxr-unit-{address}`.
 
 Several trip units on one RS485 bus:
 
@@ -96,16 +97,17 @@ uv run masuratori simulate
 ```
 
 Generates a believable PXR25 batch every second and POSTs it to
-`http://localhost:8000/api/measurements`. Three simulated counters are created
-(`SIM-PXR25-001`, `SIM-PXR25-002`, `SIM-PXR25-003`); each batch comes from a
-random one of them, so multi-counter behaviour can be tested without hardware.
-Every simulated counter keeps its own energy values. The payload is logged at
-INFO.
+`http://localhost:8000/api/counters/{code}/measurements`. Three simulated
+counters are created (`sim-pxr25-001`, `sim-pxr25-002`, `sim-pxr25-003`); each
+batch comes from a random one of them, so multi-counter behaviour can be tested
+without hardware. Every simulated counter keeps its own energy values. The
+counters are registered automatically if they do not exist. The payload is
+logged at INFO.
 
 To keep the frontend on one counter while testing:
 
 ```powershell
-uv run masuratori simulate --counter-id SIM-PXR25-001
+uv run masuratori simulate --counter-code sim-pxr25-001
 ```
 
 Start the backend first:
@@ -115,7 +117,7 @@ cd backend
 uv run uvicorn app.main:app --port 8000
 ```
 
-Point it elsewhere with `--url http://host:8000/api/measurements`.
+Point it elsewhere with `--url http://host:8000` (the backend base URL).
 
 ## Settings
 

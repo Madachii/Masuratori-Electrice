@@ -13,7 +13,8 @@ from masuratori_electrice.health import check, decode_ascii, read_serial
 from masuratori_electrice.measurements import decode_energy, decode_float, read_all
 from masuratori_electrice.models import HealthStatus, SerialSettings
 from masuratori_electrice.reader import read
-from masuratori_electrice.simulator import SIMULATED_COUNTER_IDS, Simulator
+from masuratori_electrice.sender import counter_code, counter_url
+from masuratori_electrice.simulator import SIMULATED_COUNTER_CODES, Simulator
 
 DEVICE_NAME = [0x4541, 0x544F, 0x4E20, 0x5058, 0x5232, 0x3500, 0x0000, 0x0000]
 SERIAL_NUMBER = [
@@ -176,31 +177,29 @@ class ReadAllTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_name["frequency"].unit, "Hz")
         self.assertEqual(by_name["active_energy_combined"].raw, 1.0)
 
-    async def test_counter_id_is_carried_by_every_value(self) -> None:
-        async def fake_read(client, address, count, device_id=2):
-            return [0, 0] if count == 2 else [0, 0, 0, 0]
+class SenderTests(unittest.TestCase):
+    def test_counter_code(self) -> None:
+        self.assertEqual(counter_code("00600014270"), "00600014270")
+        self.assertEqual(counter_code("SIM PXR/25 001"), "sim-pxr-25-001")
+        self.assertEqual(counter_code(""), "pxr")
 
-        with patch("masuratori_electrice.measurements.read", new=fake_read):
-            measurements = await read_all(None, device_id=7, counter_id="00600014270")
-
-        self.assertTrue(measurements)
-        self.assertTrue(
-            all(measurement.counter_id == "00600014270" for measurement in measurements)
+    def test_counter_url(self) -> None:
+        self.assertEqual(
+            counter_url("http://localhost:8000/", "00600014270"),
+            "http://localhost:8000/api/counters/00600014270/measurements",
         )
 
 
 class SimulatorTests(unittest.TestCase):
-    def test_three_distinct_counter_ids(self) -> None:
-        self.assertEqual(len(SIMULATED_COUNTER_IDS), 3)
-        self.assertEqual(len(set(SIMULATED_COUNTER_IDS)), 3)
+    def test_three_distinct_counter_codes(self) -> None:
+        self.assertEqual(len(SIMULATED_COUNTER_CODES), 3)
+        self.assertEqual(len(set(SIMULATED_COUNTER_CODES)), 3)
 
-    def test_every_simulated_value_carries_its_counter(self) -> None:
-        for counter_id in SIMULATED_COUNTER_IDS:
-            measurements = Simulator(counter_id=counter_id).next()
-            self.assertTrue(measurements)
-            self.assertTrue(
-                all(measurement.counter_id == counter_id for measurement in measurements)
-            )
+    def test_simulator_exposes_its_counter_code(self) -> None:
+        for code in SIMULATED_COUNTER_CODES:
+            simulator = Simulator(counter_code=code)
+            self.assertEqual(simulator.counter_code, code)
+            self.assertTrue(simulator.next())
 
 
 if __name__ == "__main__":

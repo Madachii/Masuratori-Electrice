@@ -14,8 +14,8 @@ from .measurements import read_all
 from .models import HealthResult, HealthStatus, SerialSettings
 from .reader import read
 from .scan import scan_port
-from .sender import send
-from .simulator import SIMULATED_COUNTER_IDS, Simulator
+from .sender import API_BASE, counter_code, counter_url, ensure_counter, send
+from .simulator import SIMULATED_COUNTER_CODES, Simulator
 from .transport import connect
 
 MESSAGES = {
@@ -179,6 +179,7 @@ async def _measure_units_async(
         print("measure --unit/--units needs --port")
         return 2
 
+    base_url = args.url or API_BASE
     timeout = args.timeout if args.timeout is not None else 1.0
     if timeout <= 0:
         print("--timeout must be greater than zero")
@@ -201,17 +202,21 @@ async def _measure_units_async(
                     continue
 
                 try:
-                    counter_id = await read_serial(client, unit)
+                    serial = await read_serial(client, unit)
                 except Exception as exc:
                     print(f"unit {unit:03d}: serial number unavailable ({exc})")
-                    counter_id = None
+                    serial = ""
 
-                measurements = await read_all(client, unit, counter_id=counter_id or None)
+                code = counter_code(serial) if serial else f"pxr-unit-{unit}"
+                if not serial:
+                    print(f"unit {unit:03d}: no serial, using code {code}")
+
+                measurements = await read_all(client, unit)
             except Exception as exc:
                 print(f"unit {unit:03d}: FAILED ({exc})")
                 continue
 
-            print(f"\nunit {unit:03d}  {identity}  contor {counter_id or '-'}")
+            print(f"\nunit {unit:03d}  {identity}  contor {code}")
             for measurement in measurements:
                 print(
                     f"{measurement.name:<24} "
@@ -219,7 +224,11 @@ async def _measure_units_async(
                     f"{measurement.unit}"
                 )
 
-            await send(measurements, args.url)
+            if not await ensure_counter(
+                base_url, code, f"Contor {serial or code}"
+            ):
+                print(f"unit {unit:03d}: counter registration failed")
+            await send(measurements, counter_url(base_url, code))
             read_ok += 1
     finally:
         client.close()
@@ -229,6 +238,7 @@ async def _measure_units_async(
 
 
 async def _measure_async(args: argparse.Namespace) -> int:
+    base_url = args.url or API_BASE
     settings = SerialSettings(port=args.port)
     result = await check(settings)
     if result.status is not HealthStatus.OK:
@@ -245,21 +255,23 @@ async def _measure_async(args: argparse.Namespace) -> int:
 
     try:
         try:
-            counter_id = await read_serial(client, settings.device_id)
+            serial = await read_serial(client, settings.device_id)
         except Exception as exc:
             print(f"serial number unavailable ({exc})")
-            counter_id = None
+            serial = ""
 
-        measurements = await read_all(
-            client, settings.device_id, counter_id=counter_id or None
-        )
+        code = counter_code(serial) if serial else f"pxr-unit-{settings.device_id}"
+        if not serial:
+            print(f"no serial, using code {code}")
+
+        measurements = await read_all(client, settings.device_id)
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 2
     finally:
         client.close()
 
-    print(f"contor {counter_id or '-'}")
+    print(f"contor {code}")
     for measurement in measurements:
         print(
             f"{measurement.name:<24} "
@@ -267,7 +279,9 @@ async def _measure_async(args: argparse.Namespace) -> int:
             f"{measurement.unit}"
         )
 
-    await send(measurements, args.url)
+    if not await ensure_counter(base_url, code, f"Contor {serial or code}"):
+        print("counter registration failed")
+    await send(measurements, counter_url(base_url, code))
     return 0
 
 
@@ -291,15 +305,26 @@ def _measure(args: argparse.Namespace) -> int:
 
 
 async def _simulate_async(args: argparse.Namespace) -> None:
-    # Independent simulators, so each fake serial keeps its own energy counters.
-    counter_ids = (
-        (args.counter_id,) if args.counter_id else SIMULATED_COUNTER_IDS
+    base_url = args.url or API_BASE
+    # Independent simulators, so each fake counter keeps its own energy values.
+    codes = (
+        (counter_code(args.counter_code),)
+        if args.counter_code
+        else SIMULATED_COUNTER_CODES
     )
-    simulators = [Simulator(counter_id=counter_id) for counter_id in counter_ids]
+    simulators = [Simulator(counter_code=code) for code in codes]
+    registered: set[str] = set()
+
     while True:
         started = time.monotonic()
         simulator = random.choice(simulators)
-        await send(simulator.next(), args.url)
+        code = simulator.counter_code
+        if code not in registered and await ensure_counter(
+            base_url, code, f"Simulat {code}"
+        ):
+            registered.add(code)
+
+        await send(simulator.next(), counter_url(base_url, code))
         elapsed = time.monotonic() - started
         await asyncio.sleep(max(0.0, 1.0 - elapsed))
 
@@ -333,9 +358,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--address", type=int, default=DEVICE_NAME_ADDRESS)
     parser.add_argument("--count", type=int, default=DEVICE_NAME_COUNT)
-    parser.add_argument("--url", help="REST endpoint (default: localhost:8000)")
     parser.add_argument(
+        "--url", help=f"backend base URL (default: {API_BASE})"
+    )
+    parser.add_argument(
+        "--counter-code",
         "--counter-id",
+        dest="counter_code",
         help="simulate only this counter (default: three random simulated counters)",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
