@@ -49,6 +49,32 @@ const NAME_TO_ID: Record<string, MeasurementId> = {
   peak_apparent_power: 'PEAK_APPARENT',
 };
 
+const ID_TO_NAME = Object.fromEntries(
+  Object.entries(NAME_TO_ID).map(([name, id]) => [id, name])
+) as Partial<Record<MeasurementId, string>>;
+
+/** Whether the backend keeps a history of this measurement. */
+export const hasSeries = (id: MeasurementId) => id in ID_TO_NAME;
+
+/** One stored value of a measurement, as the backend returns it. */
+export type SeriesPoint = { at: number; raw: number; unit: string };
+
+/** The stored values of one measurement since `since` (ms), oldest first. */
+export async function fetchSeries(
+  id: MeasurementId,
+  since: number | null,
+  baseUrl = API_URL
+): Promise<SeriesPoint[]> {
+  const name = ID_TO_NAME[id];
+  if (!name) return [];
+  const query = new URLSearchParams({ limit: '1000' });
+  if (since !== null) query.set('since', new Date(since).toISOString());
+  const response = await fetch(`${baseUrl}/api/measurements/${name}?${query}`);
+  if (!response.ok) throw new Error(`Backendul a răspuns cu ${response.status}`);
+  const points: { received_at: string; value: number; unit: string }[] = await response.json();
+  return points.map((p) => ({ at: Date.parse(p.received_at), raw: p.value, unit: p.unit }));
+}
+
 type ReadingOut = {
   id: number;
   received_at: string;
