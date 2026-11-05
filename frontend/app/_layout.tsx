@@ -1,10 +1,8 @@
 import '@/global.css';
 
+import { MeterProvider } from '@/hooks/meter-context';
 import { NAV_THEME } from '@/lib/theme';
-import {
-  JetBrainsMono_500Medium,
-  JetBrainsMono_700Bold,
-} from '@expo-google-fonts/jetbrains-mono';
+import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
@@ -17,7 +15,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import * as React from 'react';
-import { Platform } from 'react-native';
+import { LogBox, Platform } from 'react-native';
+
+// react-native-web warns whenever a scroll wins a touch over a pressable inside it; the scroll
+// behaves correctly, the warning is noise.
+LogBox.ignoreLogs(["ScrollView doesn't take rejection well"]);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,7 +52,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }} />
+      <MeterProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </MeterProvider>
       <PortalHost />
     </ThemeProvider>
   );

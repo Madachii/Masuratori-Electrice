@@ -12,7 +12,7 @@ import { LABEL } from '@/lib/format';
 import type { MeasurementId } from '@/lib/measurements';
 import { PlusIcon } from 'lucide-react-native';
 
-const FIXED: FixedModuleType[] = ['energy', 'power', 'phases', 'list'];
+const FIXED: FixedModuleType[] = ['energy', 'power', 'phases'];
 
 /** Lists the modules that can be added, or put in place of an existing one. */
 export function ModulePicker({

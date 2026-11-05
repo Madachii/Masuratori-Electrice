@@ -7,7 +7,7 @@ import { DEF_BY_ID, type MeasurementId } from '@/lib/measurements';
 // ---------- Modules ----------
 
 /** Modules that draw a fixed set of measurements in their own way. */
-export type FixedModuleType = 'energy' | 'power' | 'phases' | 'list';
+export type FixedModuleType = 'energy' | 'power' | 'phases';
 
 export type DashboardModule =
   | { key: string; type: FixedModuleType }
@@ -20,14 +20,12 @@ export const MODULE_TITLE: Record<FixedModuleType, string> = {
   energy: 'Contor de energie',
   power: 'Putere activă',
   phases: 'Faze',
-  list: 'Toate mărimile',
 };
 
 export const MODULE_DESCRIPTION: Record<FixedModuleType, string> = {
   energy: 'Energia combinată ca pe cadranul contorului, cu import, export și aparentă',
   power: 'Puterea instantanee cu tendința recentă, cererea și vârful',
   phases: 'Tensiunea și curentul pe fiecare fază, față de valorile nominale',
-  list: 'Fiecare mărime cu explicația ei și rezultatul validării',
 };
 
 export const moduleTitle = (m: DashboardModule) =>
@@ -112,7 +110,6 @@ export const PRESETS: {
       fixed('power'),
       fixed('phases'),
       stats('network', 'Rețea', ['PF', 'FREQ', 'P_REACTIVE', 'P_APPARENT', 'I_N', 'I_G']),
-      fixed('list'),
     ],
   },
   {
@@ -124,7 +121,6 @@ export const PRESETS: {
       stats('line-voltages', 'Tensiuni de linie', ['U_L1L2', 'U_L2L3', 'U_L3L1']),
       stats('quality', 'Calitatea energiei', ['PF', 'FREQ', 'I_N', 'I_G']),
       stats('powers', 'Puteri', ['P_ACTIVE', 'P_REACTIVE', 'P_APPARENT']),
-      fixed('list'),
     ],
   },
   {
@@ -151,7 +147,7 @@ export const DEFAULT_LAYOUT = presetLayout('general');
 
 // ---------- Loading a saved layout ----------
 
-const FIXED_TYPES: FixedModuleType[] = ['energy', 'power', 'phases', 'list'];
+const FIXED_TYPES: FixedModuleType[] = ['energy', 'power', 'phases'];
 
 /**
  * Turns whatever was saved into a usable layout. Unknown modules and measurements are dropped,

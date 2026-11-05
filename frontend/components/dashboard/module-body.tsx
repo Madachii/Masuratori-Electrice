@@ -1,11 +1,11 @@
 import { Carousel, chunk } from '@/components/dashboard/carousel';
 import { EnergyCounter } from '@/components/meter/energy-counter';
-import { MeasurementList } from '@/components/meter/measurement-list';
-import { PhaseCard } from '@/components/meter/phase-card';
+import { PhasesCard } from '@/components/meter/phase-card';
 import { PowerCard } from '@/components/meter/power-card';
 import { SectionHeading } from '@/components/meter/reading';
-import { StatStrip } from '@/components/meter/stat-strip';
+import { StatGrid } from '@/components/meter/stat-grid';
 import { Text } from '@/components/ui/text';
+import type { History } from '@/hooks/use-meter';
 import { type DashboardModule } from '@/lib/dashboard';
 import { LABEL } from '@/lib/format';
 import { hintFor } from '@/lib/hints';
@@ -17,14 +17,15 @@ import { View } from 'react-native';
 /** Everything a module may need to draw itself. */
 export type ModuleContext = {
   snapshot: Snapshot;
-  history: number[];
+  history: History;
   intervalMs: number;
+  live: boolean;
   meter: Meter;
   wide: boolean;
 };
 
-/** On narrow screens a group shows two rows of two, the rest on further carousel pages. */
-const STATS_PER_PAGE = 4;
+/** On narrow screens a long group shows three rows of two, the rest on further carousel pages. */
+const STATS_PER_PAGE = 6;
 
 /** How much of a shared row a card module takes on wide screens. */
 export const CARD_FLEX: Partial<Record<DashboardModule['type'], string>> = {
@@ -54,73 +55,44 @@ export function ModuleBody({
           snapshot={s}
           history={ctx.history}
           intervalMs={ctx.intervalMs}
+          live={ctx.live}
           className={className}
         />
       );
 
-    case 'phases': {
-      const phases = [
-        { phase: 1, voltage: s.U_L1N, current: s.I_L1, lineVoltage: s.U_L1L2 },
-        { phase: 2, voltage: s.U_L2N, current: s.I_L2, lineVoltage: s.U_L2L3 },
-        { phase: 3, voltage: s.U_L3N, current: s.I_L3, lineVoltage: s.U_L3L1 },
-      ] as const;
+    case 'phases':
       return (
-        <View className={cn('gap-4', className)}>
-          <SectionHeading
-            title="Faze"
-            note={`Nominal 230 V fază–neutru · ${ctx.meter.ratedCurrent} A`}
-          />
-          {wide ? (
-            <View className="flex-row gap-4">
-              {phases.map((p) => (
-                <PhaseCard
-                  key={p.phase}
-                  {...p}
-                  ratedCurrent={ctx.meter.ratedCurrent}
-                  className="flex-1"
-                />
-              ))}
-            </View>
-          ) : (
-            <Carousel
-              label="Faze"
-              pages={phases.map((p) => (
-                <PhaseCard key={p.phase} {...p} ratedCurrent={ctx.meter.ratedCurrent} />
-              ))}
-            />
-          )}
+        <View className={cn('gap-3', className)}>
+          <SectionHeading title="Faze" note={`Nominal 230 V · ${ctx.meter.ratedCurrent} A`} />
+          <PhasesCard snapshot={s} ratedCurrent={ctx.meter.ratedCurrent} wide={wide} />
         </View>
       );
-    }
 
     case 'stats': {
-      const stats = m.ids.map((id) => ({ label: LABEL[id], m: s[id], hint: hintFor(id, s[id]) }));
+      const stats = m.ids.map((id) => ({
+        id,
+        label: LABEL[id],
+        m: s[id],
+        hint: hintFor(id, s[id]),
+      }));
       return (
-        <View className={cn('gap-4', className)}>
+        <View className={cn('gap-3', className)}>
           <SectionHeading title={m.title || 'Fără titlu'} />
           {m.ids.length === 0 ? (
             <Text variant="muted">Nicio mărime în acest grup.</Text>
           ) : wide || stats.length <= STATS_PER_PAGE ? (
-            <StatStrip wide={wide} stats={stats} />
+            <StatGrid wide={wide} stats={stats} />
           ) : (
             <Carousel
               label={m.title || 'Fără titlu'}
               pages={chunk(stats, STATS_PER_PAGE).map((page, i) => (
-                <StatStrip key={i} wide={false} stats={page} />
+                <StatGrid key={i} wide={false} stats={page} />
               ))}
             />
           )}
         </View>
       );
     }
-
-    case 'list':
-      return (
-        <View className={cn('gap-4', className)}>
-          <SectionHeading title="Toate mărimile" />
-          <MeasurementList snapshot={s} wide={wide} />
-        </View>
-      );
   }
 }
 

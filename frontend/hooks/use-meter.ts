@@ -13,10 +13,12 @@ import * as React from 'react';
 
 const HISTORY_LENGTH = 90;
 
+export type History = Partial<Record<MeasurementId, number[]>>;
+
 export interface MeterState {
   snapshot: Snapshot;
-  /** Active power in kW, oldest first, for the trend line. */
-  history: number[];
+  /** Recent valid values of each measurement, oldest first, for the trend lines. */
+  history: History;
   /** When the meter was read (from the source). */
   updatedAt: number | null;
   /** When we last asked the source, successfully; the countdown to the next poll starts here. */
@@ -24,7 +26,13 @@ export interface MeterState {
   error: string | null;
 }
 
-const EMPTY: MeterState = { snapshot: {}, history: [], updatedAt: null, polledAt: null, error: null };
+const EMPTY: MeterState = {
+  snapshot: {},
+  history: {},
+  updatedAt: null,
+  polledAt: null,
+  error: null,
+};
 
 /**
  * Polls `source` and validates every measurement. Starts over when `source` changes.
@@ -78,19 +86,16 @@ export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: nu
           next[id] = { ...next[id]!, valid: false, value: null, error: 'cross_check_failed' };
         }
 
-        const p = next.P_ACTIVE;
         setState((prev) => ({
           snapshot: next,
-          history:
-            p?.valid && p.value !== null
-              ? [...prev.history, p.value / 1000].slice(-HISTORY_LENGTH)
-              : prev.history,
+          history: extend(prev.history, next),
           updatedAt: readAt,
           polledAt: Date.now(),
           error: null,
         }));
       } catch (e) {
-        if (alive) setState((prev) => ({ ...prev, error: e instanceof Error ? e.message : String(e) }));
+        if (alive)
+          setState((prev) => ({ ...prev, error: e instanceof Error ? e.message : String(e) }));
       }
     };
 
@@ -103,6 +108,16 @@ export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: nu
   }, [source, intervalMs, maxPowerW]);
 
   return state;
+}
+
+/** Adds each valid value to its trend line, keeping the last HISTORY_LENGTH. */
+function extend(history: History, snapshot: Snapshot): History {
+  const out: History = { ...history };
+  for (const m of Object.values(snapshot)) {
+    if (m?.valid && m.value !== null)
+      out[m.id] = [...(history[m.id] ?? []), m.value].slice(-HISTORY_LENGTH);
+  }
+  return out;
 }
 
 /** Re-renders every `ms` so time labels stay current. */
