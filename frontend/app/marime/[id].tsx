@@ -135,7 +135,7 @@ const RANGES: { value: SeriesRange; label: string }[] = [
 
 /**
  * The measurement over time: from the history the backend keeps when there is one, otherwise
- * from the readings since the app opened (simulated data).
+ * from the readings since the app opened.
  */
 function TrendCard({ def }: { def: MeasurementDef }) {
   const { readings } = useMeterContext();

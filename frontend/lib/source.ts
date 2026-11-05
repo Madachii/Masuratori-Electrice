@@ -16,5 +16,5 @@ export type SourceResult = {
   previous?: { frame: RawFrame; readAt: number };
 };
 
-/** Where readings come from: the backend, or the simulator while developing. */
+/** Where readings come from: the backend. */
 export type MeterSource = () => Promise<SourceResult>;

@@ -3,7 +3,7 @@
  *
  * Set EXPO_PUBLIC_API_URL in .env.local, e.g. http://192.168.1.20:8000.
  * On a phone, use the laptop's IP address: "localhost" there is the phone itself.
- * When the variable is empty the app falls back to simulated data.
+ * Without it the app has nowhere to read from and shows an error.
  */
 import type { MeasurementId } from '@/lib/measurements';
 import type { MeterSource, RawFrame } from '@/lib/source';
@@ -92,6 +92,7 @@ const toFrame = (reading: ReadingOut) => {
 
 export function createApiSource(baseUrl = API_URL): MeterSource {
   return async () => {
+    if (!baseUrl) throw new Error('Adresa backendului nu este setată (EXPO_PUBLIC_API_URL în .env.local)');
     // The last two cycles, newest first: the one before is what the checks over time compare with.
     const response = await fetch(`${baseUrl}/api/readings?limit=2`);
     if (!response.ok) throw new Error(`Backendul a răspuns cu ${response.status}`);

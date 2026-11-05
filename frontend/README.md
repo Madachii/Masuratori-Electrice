@@ -32,8 +32,8 @@ You can also scan the QR code using the [Expo Go](https://expo.dev/go) app on yo
 
 ## Backend
 
-Without configuration the app shows simulated data. To read from the FastAPI backend
-(`backend/` on the `app/backend` branch):
+The app reads only from the FastAPI backend (`backend/` on the `app/backend` branch). Without
+`EXPO_PUBLIC_API_URL` it shows an error instead of data.
 
 1. Start the backend so other devices can reach it:
 
@@ -53,9 +53,13 @@ Without configuration the app shows simulated data. To read from the FastAPI bac
 
 3. Restart `npm run dev` so Expo picks up the variable.
 
-The app polls `GET /api/readings/latest` every 5 s and maps the reader's field names
-(`intensity_l1`, `voltage_l1`, `active_energy_combined`, …) in `lib/api.ts`. Values the reader
-does not send yet are shown as `—`.
+The app polls `GET /api/readings?limit=2` every 5 s and reads charts from
+`GET /api/measurements/{name}`. It maps the PXR25 reader's field names (`intensity_l1`,
+`voltage_l1_n`, `active_energy_combined`, …, branch `app/pxr25`) in `lib/api.ts`. Values the
+reader does not send are shown as `—`.
+
+Without the meter, `uv run masuratori simulate` on the `app/pxr25` branch posts believable PXR25
+readings to the backend every second.
 
 ## Adding components
 
