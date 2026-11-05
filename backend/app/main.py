@@ -10,12 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import Base, engine
+from .migrations import upgrade_schema
 from .routers import counters, measurements
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     Base.metadata.create_all(engine)
+    upgrade_schema(engine)
     yield
 
 

@@ -14,7 +14,9 @@ uv run uvicorn app.main:app --reload
 Interactive docs: http://localhost:8000/docs
 
 The database is SQLite (`masuratori.db`) by default and the tables are created
-on startup. To change it, copy `.env.example` to `.env` and set `DATABASE_URL`.
+on startup. A database created before counters existed is upgraded in place:
+its readings are assigned to a `legacy` counter so none of them are lost. To
+change the database, copy `.env.example` to `.env` and set `DATABASE_URL`.
 
 ## Counters
 
