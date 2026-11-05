@@ -126,9 +126,9 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={selected}
             className={cn(
-              'flex-1 items-center rounded-xl',
+              'flex-1 items-center rounded-xl shadow-sm shadow-transparent',
               size === 'sm' ? 'py-1.5' : 'py-2.5',
-              selected && 'bg-card shadow-sm shadow-black/10'
+              selected && 'bg-card shadow-black/10'
             )}>
             <Text
               className={cn(
