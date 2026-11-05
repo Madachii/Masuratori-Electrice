@@ -23,13 +23,15 @@ const EMPTY: Series = { points: [], dropped: 0, loading: true, error: null };
  */
 export function useBackendSeries(
   def: MeasurementDef,
+  counter: string,
   range: SeriesRange,
   refreshKey: unknown
 ): Series | null {
-  const enabled = !!API_URL && hasSeries(def.id);
-  // What the stored series was fetched for. When the measurement or range changes it starts over
-  // empty; a new reading only refreshes it in place.
-  const key = `${def.id}|${range}`;
+  const enabled = !!API_URL && !!counter && hasSeries(def.id);
+  // What the stored series was fetched for. When the counter, measurement or range changes it
+  // starts over empty, so one counter's history never shows under another; a new reading only
+  // refreshes it in place.
+  const key = `${counter}|${def.id}|${range}`;
   const [stored, setStored] = React.useState<{ key: string; series: Series }>({ key, series: EMPTY });
   const series = stored.key === key ? stored.series : EMPTY;
 
@@ -38,7 +40,7 @@ export function useBackendSeries(
     let alive = true;
     const days = RANGE_DAYS[range];
     const since = days === null ? null : Date.now() - days * 86_400_000;
-    fetchSeries(def.id, since)
+    fetchSeries(def.id, counter, since)
       .then((raw) => {
         if (!alive) return;
         // Only the checks on the value itself: the ones over time already ran on each reading.
@@ -64,7 +66,7 @@ export function useBackendSeries(
     return () => {
       alive = false;
     };
-  }, [enabled, def, range, key, refreshKey]);
+  }, [enabled, def, counter, range, key, refreshKey]);
 
   return enabled ? series : null;
 }

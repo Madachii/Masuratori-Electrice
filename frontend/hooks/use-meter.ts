@@ -35,10 +35,15 @@ const EMPTY: MeterState = {
 };
 
 /**
- * Polls `source` and validates every measurement. Starts over when `source` changes.
+ * Polls `source` and validates every measurement. Starts over when `source` changes, so the
+ * readings of one meter never carry over to another; with no source it waits, empty.
  * `maxPowerW` is the most the meter can carry; energy growing faster than that is flagged.
  */
-export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: number): MeterState {
+export function useMeter(
+  source: MeterSource | null,
+  intervalMs: number,
+  maxPowerW?: number
+): MeterState {
   const [state, setState] = React.useState<MeterState>(EMPTY);
   // The previous reading of each measurement that made sense on its own; checks over time compare with it.
   const previous = React.useRef<Partial<Record<MeasurementId, PreviousReading>>>({});
@@ -49,6 +54,7 @@ export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: nu
     setState(EMPTY);
     previous.current = {};
     lastReadAt.current = null;
+    if (!source) return;
 
     const tick = async () => {
       try {

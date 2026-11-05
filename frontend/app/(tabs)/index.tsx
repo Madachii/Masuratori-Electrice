@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { AVAILABLE_METERS, POLL_MS, useMeterContext } from '@/hooks/meter-context';
+import { POLL_MS, useMeterContext } from '@/hooks/meter-context';
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout';
 import { LOCATION } from '@/lib/meters';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,7 @@ import * as React from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 
 export default function Home() {
-  const { meter, readings, live, available, errors } = useMeterContext();
+  const { meter, meters, readings, live, available, errors } = useMeterContext();
   const { width } = useWindowDimensions();
   const wide = width >= 900;
   const layout = useDashboardLayout();
@@ -54,12 +54,12 @@ export default function Home() {
             <Text className="text-sm text-muted-foreground">{LOCATION}</Text>
             <Pressable
               onPress={() => router.navigate('/contoare')}
-              disabled={AVAILABLE_METERS.length < 2}
+              disabled={meters.length < 2}
               accessibilityRole="button"
               accessibilityLabel={`${meter.name}, schimbă contorul`}
               className="flex-row items-center gap-2 self-start">
               <Text className="font-display-bold text-4xl tracking-tight">{meter.name}</Text>
-              {AVAILABLE_METERS.length > 1 ? (
+              {meters.length > 1 ? (
                 <Icon as={ChevronDownIcon} className="mt-1 size-6 text-muted-foreground" />
               ) : null}
             </Pressable>
