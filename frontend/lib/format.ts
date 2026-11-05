@@ -1,0 +1,154 @@
+import {
+  DEF_BY_ID,
+  type Measurement,
+  type MeasurementId,
+  type Unit,
+  type ValidationError,
+} from '@/lib/measurements';
+
+export const LABEL: Record<MeasurementId, string> = {
+  I_L1: 'Curent L1',
+  I_L2: 'Curent L2',
+  I_L3: 'Curent L3',
+  I_N: 'Curent neutru',
+  I_G: 'Curent la pământ',
+  U_L1N: 'Tensiune L1–N',
+  U_L2N: 'Tensiune L2–N',
+  U_L3N: 'Tensiune L3–N',
+  U_L1L2: 'Tensiune L1–L2',
+  U_L2L3: 'Tensiune L2–L3',
+  U_L3L1: 'Tensiune L3–L1',
+  P_ACTIVE: 'Putere activă',
+  P_REACTIVE: 'Putere reactivă',
+  P_APPARENT: 'Putere aparentă',
+  PF: 'Factor de putere',
+  FREQ: 'Frecvență',
+  E_ACTIVE_COMB: 'Energie activă combinată',
+  E_ACTIVE_FWD: 'Energie activă import',
+  E_ACTIVE_REV: 'Energie activă export',
+  E_APPARENT: 'Energie aparentă',
+  DEMAND_ACTIVE: 'Cerere activă',
+  DEMAND_REACTIVE: 'Cerere reactivă',
+  DEMAND_APPARENT: 'Cerere aparentă',
+  PEAK_ACTIVE: 'Vârf cerere activă',
+  PEAK_REACTIVE: 'Vârf cerere reactivă',
+  PEAK_APPARENT: 'Vârf cerere aparentă',
+};
+
+/** One line on what the measurement means, only where the name alone isn't enough. */
+export const DESCRIPTION: Partial<Record<MeasurementId, string>> = {
+  I_N: 'Crește când fazele sunt încărcate inegal',
+  I_G: 'Curent scurs spre pământ; o valoare mare indică un defect de izolație',
+  P_REACTIVE: 'Schimbată cu motoarele și bobinele, fără lucru util',
+  P_APPARENT: 'Încărcarea totală a instalației',
+  PF: 'Activă / aparentă; ideal cât mai aproape de 1',
+  E_ACTIVE_COMB: 'Import + export',
+  E_ACTIVE_REV: 'Livrată înapoi în rețea',
+};
+
+export const ERROR_LABEL: Record<ValidationError, string> = {
+  not_finite: 'citire invalidă',
+  wrong_unit: 'unitate greșită',
+  out_of_range: 'în afara domeniului',
+  counter_decreased: 'contor descrescut',
+  implausible_jump: 'salt imposibil',
+  cross_check_failed: 'inconsistent',
+  stale: 'expirat',
+};
+
+// Power arrives in W; show it with a k prefix once it gets large.
+const KILO: Partial<Record<Unit, string>> = { W: 'kW', Var: 'kvar', VA: 'kVA' };
+const DISPLAY_UNIT: Partial<Record<Unit, string>> = { Var: 'var' };
+
+/** Romanian decimal comma; from 10 000 up, thousands apart: "26 360,10". */
+export const num = (v: number, decimals: number) => {
+  const [int, frac] = v.toFixed(decimals).split('.');
+  const grouped = Math.abs(v) >= 10_000 ? int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0') : int;
+  return frac ? `${grouped},${frac}` : grouped;
+};
+
+export function display(m: Measurement | undefined): { value: string; unit: string } {
+  if (!m) return { value: '—', unit: '' };
+  const def = DEF_BY_ID[m.id];
+  const kilo = KILO[m.unit];
+  const unit = DISPLAY_UNIT[m.unit] ?? m.unit;
+  if (!m.valid || m.value === null) return { value: '—', unit: kilo ?? unit };
+  if (kilo && Math.abs(m.value) >= 1000) return { value: num(m.value / 1000, 2), unit: kilo };
+  return { value: num(m.value, def.decimals), unit };
+}
+
+/** The value exactly as received, for readings that failed validation: "452.7 V". */
+export const rawText = (m: Measurement) =>
+  `${Number.isFinite(m.raw) ? m.raw : String(m.raw)} ${DISPLAY_UNIT[m.unit] ?? m.unit}`.trim();
+
+/**
+ * Scale for a series of raw values (e.g. a trend line): power in W switches to kW once the
+ * values get large, like single readings do.
+ */
+export function seriesScale(unit: Unit, values: number[]): { factor: number; unit: string } {
+  const kilo = KILO[unit];
+  if (kilo && values.some((v) => Math.abs(v) >= 1000)) return { factor: 1 / 1000, unit: kilo };
+  return { factor: 1, unit: DISPLAY_UNIT[unit] ?? unit };
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+export const clock = (ms: number) => {
+  const t = new Date(ms);
+  return `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+};
+
+const DAYS = ['dum.', 'lun.', 'mar.', 'mie.', 'joi', 'vin.', 'sâm.'];
+const MONTHS = [
+  'ian.',
+  'feb.',
+  'mar.',
+  'apr.',
+  'mai',
+  'iun.',
+  'iul.',
+  'aug.',
+  'sept.',
+  'oct.',
+  'nov.',
+  'dec.',
+];
+
+const startOfDay = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+
+/** "22 oct.", with the year when it isn't this year: "22 oct. 2025". */
+export function shortDate(ms: number, now = Date.now()) {
+  const t = new Date(ms);
+  const year = t.getFullYear() === new Date(now).getFullYear() ? '' : ` ${t.getFullYear()}`;
+  return `${t.getDate()} ${MONTHS[t.getMonth()]}${year}`;
+}
+
+/** "azi, 20:57", "ieri, 20:57" or "joi, 22 oct., 20:57". */
+export function dateTime(ms: number, now = Date.now()) {
+  const t = new Date(ms);
+  const time = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  const days = Math.round((startOfDay(new Date(now)) - startOfDay(t)) / 86_400_000);
+  if (days === 0) return `azi, ${time}`;
+  if (days === 1) return `ieri, ${time}`;
+  return `${DAYS[t.getDay()]}, ${t.getDate()} ${MONTHS[t.getMonth()]}, ${time}`;
+}
+
+/** "de " where Romanian puts it between a number and a noun: "20 de zile", but "3 zile". */
+export const de = (n: number) => (n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : '');
+
+/** Romanian count: "o zi", "3 zile", "20 de zile". */
+function count(n: number, one: string, many: string) {
+  if (n === 1) return one;
+  return `${n} ${de(n)}${many}`;
+}
+
+/** How long ago, in the largest unit that fits: "acum 40 s", "acum 5 min", "acum 3 ore", "acum 2 zile". */
+export function ago(ms: number, now = Date.now()) {
+  const s = Math.max(0, Math.round((now - ms) / 1000));
+  if (s < 60) return `acum ${s} s`;
+  const min = Math.floor(s / 60);
+  if (min < 60) return `acum ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `acum ${count(h, 'o oră', 'ore')}`;
+  return `acum ${count(Math.floor(h / 24), 'o zi', 'zile')}`;
+}
