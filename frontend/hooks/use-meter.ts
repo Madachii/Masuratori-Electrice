@@ -3,6 +3,7 @@ import {
   crossCheck,
   toMeasurement,
   passedBasicChecks,
+  validate,
   type MeasurementId,
   type PreviousReading,
   type Snapshot,
@@ -43,13 +44,21 @@ export function useMeter(source: MeterSource, intervalMs: number, maxPowerW?: nu
 
     const tick = async () => {
       try {
-        const { frame, readAt } = await source();
+        const { frame, readAt, previous: before } = await source();
         if (!alive) return;
 
         // The backend repeats the latest reading until the reader sends a new one: nothing to redo.
         if (readAt === lastReadAt.current) {
           setState((prev) => ({ ...prev, polledAt: Date.now(), error: null }));
           return;
+        }
+        // First reading since the app opened: what the meter read before comes from the source.
+        if (lastReadAt.current === null && before) {
+          for (const def of MEASUREMENTS) {
+            const item = before.frame[def.id];
+            if (item && validate(def, item.raw, item.unit, { at: before.readAt }).ok)
+              previous.current[def.id] = { raw: item.raw, at: before.readAt };
+          }
         }
         lastReadAt.current = readAt;
 
