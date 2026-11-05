@@ -1,39 +1,44 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { DESCRIPTION, LABEL } from '@/lib/format';
-import { MEASUREMENTS, type MeasurementId, type Snapshot } from '@/lib/measurements';
+import { MEASUREMENT_GROUPS } from '@/lib/dashboard';
+import { LABEL, rawText } from '@/lib/format';
+import type { MeasurementId, Snapshot } from '@/lib/measurements';
+import { openMeasurement } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
-import * as React from 'react';
-import { View } from 'react-native';
+import { ChevronRightIcon } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
 
-const GROUPS: { title: string; note?: string; ids: MeasurementId[] }[] = [
-  { title: 'Curenți', ids: ['I_L1', 'I_L2', 'I_L3', 'I_N', 'I_G'] },
-  { title: 'Tensiuni', ids: ['U_L1N', 'U_L2N', 'U_L3N', 'U_L1L2', 'U_L2L3', 'U_L3L1'] },
-  { title: 'Putere și rețea', ids: ['P_ACTIVE', 'P_REACTIVE', 'P_APPARENT', 'PF', 'FREQ'] },
-  { title: 'Energie', ids: ['E_ACTIVE_COMB', 'E_ACTIVE_FWD', 'E_ACTIVE_REV', 'E_APPARENT'] },
-  {
-    title: 'Cerere',
-    note: 'Media pe intervalul de cerere și cea mai mare valoare înregistrată',
-    ids: [
-      'DEMAND_ACTIVE',
-      'DEMAND_REACTIVE',
-      'DEMAND_APPARENT',
-      'PEAK_ACTIVE',
-      'PEAK_REACTIVE',
-      'PEAK_APPARENT',
-    ],
-  },
-];
+export type Filter = 'all' | 'errors';
 
-/** Every measurement with what it means, its value and whether it passed validation. */
-export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: boolean }) {
-  const [onlyErrors, setOnlyErrors] = React.useState(false);
+/**
+ * Every measurement the source sends, grouped by kind, each opening its detail screen.
+ * `available` is null until the first reading, when every measurement is listed.
+ */
+export function MeasurementList({
+  snapshot,
+  available,
+  wide,
+  filter,
+  onFilter,
+}: {
+  snapshot: Snapshot;
+  available: Set<MeasurementId> | null;
+  wide: boolean;
+  filter: Filter;
+  onFilter: (filter: Filter) => void;
+}) {
   const isError = (id: MeasurementId) => !!snapshot[id] && !snapshot[id]!.valid;
-  const errors = MEASUREMENTS.filter((d) => isError(d.id)).length;
-  const groups = GROUPS.map((g) => ({
+  const all = MEASUREMENT_GROUPS.flatMap((g) => g.ids).filter(
+    (id) => !available || available.has(id)
+  );
+  const errors = all.filter(isError).length;
+  const groups = MEASUREMENT_GROUPS.map((g) => ({
     ...g,
-    ids: onlyErrors ? g.ids.filter(isError) : g.ids,
+    ids: g.ids.filter(
+      (id) => (!available || available.has(id)) && (filter === 'all' || isError(id))
+    ),
   })).filter((g) => g.ids.length > 0);
   // Two fixed columns on wide screens, so an odd group out doesn't stretch across the page.
   const columns = wide
@@ -41,39 +46,32 @@ export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: 
     : [groups];
 
   return (
-    <View className="gap-4">
-      <View className="flex-row gap-2">
-        <Button
-          size="sm"
-          variant={onlyErrors ? 'outline' : 'secondary'}
-          onPress={() => setOnlyErrors(false)}>
-          <Text>Toate ({MEASUREMENTS.length})</Text>
-        </Button>
-        <Button
-          size="sm"
-          variant={onlyErrors ? 'secondary' : 'outline'}
-          onPress={() => setOnlyErrors(true)}>
-          <Text>Erori ({errors})</Text>
-        </Button>
-      </View>
+    <View className="gap-6">
+      <Segmented
+        value={filter}
+        onChange={onFilter}
+        options={[
+          { value: 'all', label: `Toate (${all.length})` },
+          { value: 'errors', label: `Erori (${errors})` },
+        ]}
+      />
 
       {groups.length === 0 ? (
-        <Text variant="muted">Nicio eroare în ultima citire.</Text>
+        <Card className="items-center p-8">
+          <Text className="text-muted-foreground">Nicio eroare în ultima citire</Text>
+        </Card>
       ) : (
-        <View className={wide ? 'flex-row gap-12' : 'gap-8'}>
+        <View className={wide ? 'flex-row items-start gap-6' : 'gap-6'}>
           {columns.map((column, c) => (
-            <View key={c} className={cn('gap-8', wide && 'flex-1')}>
+            <View key={c} className={cn('gap-6', wide && 'flex-1')}>
               {column.map((g) => (
-                <View key={g.title}>
-                  <View className="gap-0.5 pb-2">
-                    <Text className="font-display text-base">{g.title}</Text>
-                    {g.note ? (
-                      <Text className="text-xs text-muted-foreground">{g.note}</Text>
-                    ) : null}
-                  </View>
-                  {g.ids.map((id) => (
-                    <Row key={id} id={id} snapshot={snapshot} />
-                  ))}
+                <View key={g.title} className="gap-3">
+                  <Text className="font-display-bold text-xl tracking-tight">{g.title}</Text>
+                  <Card className="gap-0 overflow-hidden p-0">
+                    {g.ids.map((id, i) => (
+                      <Row key={id} id={id} snapshot={snapshot} first={i === 0} />
+                    ))}
+                  </Card>
                 </View>
               ))}
             </View>
@@ -84,20 +82,65 @@ export function MeasurementList({ snapshot, wide }: { snapshot: Snapshot; wide: 
   );
 }
 
-function Row({ id, snapshot }: { id: MeasurementId; snapshot: Snapshot }) {
+function Row({ id, snapshot, first }: { id: MeasurementId; snapshot: Snapshot; first: boolean }) {
   const m = snapshot[id];
+  const invalid = m && !m.valid;
   return (
-    <View className="flex-row items-center gap-3 border-t border-border py-3">
+    <Pressable
+      onPress={() => openMeasurement(id)}
+      accessibilityRole="button"
+      className={cn(
+        'min-h-[60px] flex-row items-center gap-3 py-3 pl-5 pr-4 active:bg-muted web:hover:bg-muted/50',
+        !first && 'border-t border-border'
+      )}>
       <View className="flex-1 gap-0.5">
-        <Text className="text-sm">{LABEL[id]}</Text>
-        {DESCRIPTION[id] ? (
-          <Text className="text-xs text-muted-foreground">{DESCRIPTION[id]}</Text>
-        ) : null}
+        <Text>{LABEL[id]}</Text>
+        {invalid ? <Text className="text-sm text-muted-foreground">raw {rawText(m)}</Text> : null}
       </View>
-      <View className="items-end gap-1">
-        <Reading m={m} size="sm" />
-        <ErrorTag m={m} className="self-end" />
-      </View>
+      {invalid ? <ErrorTag m={m} className="self-center" /> : <Reading m={m} size="sm" />}
+      <Icon as={ChevronRightIcon} className="size-5 text-muted-foreground" />
+    </Pressable>
+  );
+}
+
+/** Two or three options in a rounded track; the selected one is raised. */
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  size = 'default',
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string }[];
+  size?: 'default' | 'sm';
+}) {
+  return (
+    <View className="flex-row rounded-2xl bg-muted p-1" role="tablist">
+      {options.map((o) => {
+        const selected = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            role="tab"
+            aria-selected={selected}
+            className={cn(
+              'flex-1 items-center rounded-xl',
+              size === 'sm' ? 'py-1.5' : 'py-2.5',
+              selected && 'bg-card shadow-sm shadow-black/10'
+            )}>
+            <Text
+              className={cn(
+                'font-semibold',
+                size === 'sm' && 'text-sm',
+                selected ? 'text-foreground' : 'text-muted-foreground'
+              )}>
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

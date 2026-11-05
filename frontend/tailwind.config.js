@@ -14,8 +14,10 @@ module.exports = {
         'mono-bold': ['JetBrainsMono_700Bold'],
       },
       colors: {
-        ok: 'hsl(var(--ok))',
-        warn: 'hsl(var(--warn))',
+        ok: { DEFAULT: 'hsl(var(--ok))', soft: 'hsl(var(--ok-soft))' },
+        warn: { DEFAULT: 'hsl(var(--warn))', soft: 'hsl(var(--warn-soft))' },
+        band: 'hsl(var(--band))',
+        digit: { DEFAULT: 'hsl(var(--digit))', foreground: 'hsl(var(--digit-foreground))' },
         phase: {
           1: 'hsl(var(--phase-1))',
           2: 'hsl(var(--phase-2))',
@@ -29,6 +31,7 @@ module.exports = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          soft: 'hsl(var(--primary-soft))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -37,6 +40,7 @@ module.exports = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          soft: 'hsl(var(--destructive-soft))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

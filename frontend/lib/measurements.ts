@@ -168,6 +168,9 @@ export type Snapshot = Partial<Record<MeasurementId, Measurement>>;
 
 const close = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol * Math.max(Math.abs(a), Math.abs(b), 1);
 
+/** Measurements compared with others by crossCheck. */
+export const CROSS_CHECKED: MeasurementId[] = ['U_L1L2', 'U_L2L3', 'U_L3L1', 'E_ACTIVE_COMB', 'P_APPARENT'];
+
 /** Returns the ids that fail a consistency check (so the UI can flag them). */
 export function crossCheck(s: Snapshot): MeasurementId[] {
   const bad: MeasurementId[] = [];

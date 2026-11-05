@@ -60,8 +60,12 @@ export const ERROR_LABEL: Record<ValidationError, string> = {
 const KILO: Partial<Record<Unit, string>> = { W: 'kW', Var: 'kvar', VA: 'kVA' };
 const DISPLAY_UNIT: Partial<Record<Unit, string>> = { Var: 'var' };
 
-/** Romanian decimal comma. */
-export const num = (v: number, decimals: number) => v.toFixed(decimals).replace('.', ',');
+/** Romanian decimal comma; from 10 000 up, thousands apart: "26 360,10". */
+export const num = (v: number, decimals: number) => {
+  const [int, frac] = v.toFixed(decimals).split('.');
+  const grouped = Math.abs(v) >= 10_000 ? int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0') : int;
+  return frac ? `${grouped},${frac}` : grouped;
+};
 
 export function display(m: Measurement | undefined): { value: string; unit: string } {
   if (!m) return { value: '—', unit: '' };
@@ -73,6 +77,20 @@ export function display(m: Measurement | undefined): { value: string; unit: stri
   return { value: num(m.value, def.decimals), unit };
 }
 
+/** The value exactly as received, for readings that failed validation: "452.7 V". */
+export const rawText = (m: Measurement) =>
+  `${Number.isFinite(m.raw) ? m.raw : String(m.raw)} ${DISPLAY_UNIT[m.unit] ?? m.unit}`.trim();
+
+/**
+ * Scale for a series of raw values (e.g. a trend line): power in W switches to kW once the
+ * values get large, like single readings do.
+ */
+export function seriesScale(unit: Unit, values: number[]): { factor: number; unit: string } {
+  const kilo = KILO[unit];
+  if (kilo && values.some((v) => Math.abs(v) >= 1000)) return { factor: 1 / 1000, unit: kilo };
+  return { factor: 1, unit: DISPLAY_UNIT[unit] ?? unit };
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export const clock = (ms: number) => {
@@ -81,9 +99,29 @@ export const clock = (ms: number) => {
 };
 
 const DAYS = ['dum.', 'lun.', 'mar.', 'mie.', 'joi', 'vin.', 'sâm.'];
-const MONTHS = ['ian.', 'feb.', 'mar.', 'apr.', 'mai', 'iun.', 'iul.', 'aug.', 'sept.', 'oct.', 'nov.', 'dec.'];
+const MONTHS = [
+  'ian.',
+  'feb.',
+  'mar.',
+  'apr.',
+  'mai',
+  'iun.',
+  'iul.',
+  'aug.',
+  'sept.',
+  'oct.',
+  'nov.',
+  'dec.',
+];
 
 const startOfDay = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+
+/** "22 oct.", with the year when it isn't this year: "22 oct. 2025". */
+export function shortDate(ms: number, now = Date.now()) {
+  const t = new Date(ms);
+  const year = t.getFullYear() === new Date(now).getFullYear() ? '' : ` ${t.getFullYear()}`;
+  return `${t.getDate()} ${MONTHS[t.getMonth()]}${year}`;
+}
 
 /** "azi, 20:57", "ieri, 20:57" or "joi, 22 oct., 20:57". */
 export function dateTime(ms: number, now = Date.now()) {
@@ -95,11 +133,13 @@ export function dateTime(ms: number, now = Date.now()) {
   return `${DAYS[t.getDay()]}, ${t.getDate()} ${MONTHS[t.getMonth()]}, ${time}`;
 }
 
+/** "de " where Romanian puts it between a number and a noun: "20 de zile", but "3 zile". */
+export const de = (n: number) => (n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : '');
+
 /** Romanian count: "o zi", "3 zile", "20 de zile". */
 function count(n: number, one: string, many: string) {
   if (n === 1) return one;
-  const de = n >= 20 && (n % 100 === 0 || n % 100 >= 20) ? 'de ' : '';
-  return `${n} ${de}${many}`;
+  return `${n} ${de(n)}${many}`;
 }
 
 /** How long ago, in the largest unit that fits: "acum 40 s", "acum 5 min", "acum 3 ore", "acum 2 zile". */

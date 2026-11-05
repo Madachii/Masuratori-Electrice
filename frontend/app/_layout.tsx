@@ -1,10 +1,8 @@
 import '@/global.css';
 
+import { MeterProvider } from '@/hooks/meter-context';
 import { NAV_THEME } from '@/lib/theme';
-import {
-  JetBrainsMono_500Medium,
-  JetBrainsMono_700Bold,
-} from '@expo-google-fonts/jetbrains-mono';
+import { JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
@@ -17,6 +15,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import * as React from 'react';
+import { LogBox, Platform } from 'react-native';
+
+// react-native-web warns whenever a scroll wins a touch over a pressable inside it; the scroll
+// behaves correctly, the warning is noise.
+LogBox.ignoreLogs(["ScrollView doesn't take rejection well"]);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -38,12 +41,20 @@ export default function RootLayout() {
     if (loaded || error) SplashScreen.hideAsync();
   }, [loaded, error]);
 
+  // On web the colors come from the `dark` class; follow the scheme, including the system's at start.
+  React.useEffect(() => {
+    if (Platform.OS === 'web')
+      document.documentElement.classList.toggle('dark', colorScheme === 'dark');
+  }, [colorScheme]);
+
   if (!loaded && !error) return null;
 
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }} />
+      <MeterProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </MeterProvider>
       <PortalHost />
     </ThemeProvider>
   );

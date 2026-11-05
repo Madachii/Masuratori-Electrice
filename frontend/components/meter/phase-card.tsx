@@ -1,121 +1,85 @@
 import { ErrorTag, Reading } from '@/components/meter/reading';
+import { BandScale, LoadBar, PHASE_BG } from '@/components/meter/scales';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import type { Measurement } from '@/lib/measurements';
+import { openMeasurement } from '@/lib/navigation';
+import type { Measurement, Snapshot } from '@/lib/measurements';
+import { bandFor } from '@/lib/ranges';
 import { cn } from '@/lib/utils';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 type Phase = 1 | 2 | 3;
 
-// Static class names so Tailwind picks them up.
-const PHASE_BG: Record<Phase, string> = { 1: 'bg-phase-1', 2: 'bg-phase-2', 3: 'bg-phase-3' };
+const PHASES = [
+  { phase: 1, voltage: 'U_L1N', current: 'I_L1', line: 'U_L1L2' },
+  { phase: 2, voltage: 'U_L2N', current: 'I_L2', line: 'U_L2L3' },
+  { phase: 3, voltage: 'U_L3N', current: 'I_L3', line: 'U_L3L1' },
+] as const;
 
-const NOMINAL_V = 230;
-const TOLERANCE = 0.1; // ±10 %, EN 50160
-const SCALE_MIN = 200;
-const SCALE_MAX = 260;
+const valueOf = (m?: Measurement) => (m?.valid && m.value !== null ? m.value : null);
 
-const pct = (v: number, min: number, max: number) => Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100));
-
-export function PhaseCard({
-  phase,
-  voltage,
-  current,
-  lineVoltage,
+/** Voltage and current of the three phases: stacked on phones, side by side on wide screens. */
+export function PhasesCard({
+  snapshot: s,
   ratedCurrent,
+  wide,
   className,
 }: {
-  phase: Phase;
-  voltage?: Measurement;
-  current?: Measurement;
-  lineVoltage?: Measurement;
+  snapshot: Snapshot;
   ratedCurrent: number;
+  wide: boolean;
   className?: string;
 }) {
   return (
-    <Card className={cn('gap-5 p-5', className)}>
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2">
-          <View className={cn('size-3 rounded-sm', PHASE_BG[phase])} />
-          <Text className="font-display-bold text-lg">L{phase}</Text>
-        </View>
-        <View className="flex-row items-baseline gap-2">
-          <Text className="text-xs text-muted-foreground">
-            L{phase}–L{(phase % 3) + 1}
-          </Text>
-          <Reading m={lineVoltage} size="sm" />
-        </View>
-      </View>
-
-      <View className="gap-3">
-        <View className="flex-row items-end justify-between gap-2">
-          <View className="flex-1 gap-0.5">
-            <Text className="text-xs text-muted-foreground">Tensiune fază–neutru</Text>
-            <Reading m={voltage} size="lg" />
-          </View>
-          <ErrorTag m={voltage} />
-        </View>
-        <VoltageScale value={voltage?.valid ? voltage.value : null} />
-      </View>
-
-      <View className="gap-3">
-        <View className="flex-row items-end justify-between gap-2">
-          <View className="flex-1 gap-0.5">
-            <Text className="text-xs text-muted-foreground">Curent</Text>
-            <Reading m={current} size="md" />
-          </View>
-          <ErrorTag m={current} />
-        </View>
-        <View className="h-2 overflow-hidden rounded-full bg-muted">
-          {current?.valid && current.value !== null ? (
-            <View
-              className={cn('h-2 rounded-full', PHASE_BG[phase])}
-              style={{ width: `${pct(current.value, 0, ratedCurrent)}%` }}
-            />
-          ) : null}
-        </View>
-        <Text className="text-xs text-muted-foreground">
-          {current?.valid && current.value !== null
-            ? `${Math.round((current.value / ratedCurrent) * 100)}% din ${ratedCurrent} A nominal`
-            : `nominal ${ratedCurrent} A`}
-        </Text>
-      </View>
-    </Card>
-  );
-}
-
-/** Horizontal scale 200–260 V with the ±10 % band around 230 V and a needle at the reading. */
-function VoltageScale({ value }: { value: number | null }) {
-  const lo = NOMINAL_V * (1 - TOLERANCE);
-  const hi = NOMINAL_V * (1 + TOLERANCE);
-  const inBand = value !== null && value >= lo && value <= hi;
-  const ticks = [lo, NOMINAL_V, hi];
-
-  return (
-    <View className="gap-1">
-      <View className="h-4 justify-center">
-        <View className="h-1.5 rounded-full bg-muted" />
+    <Card className={cn('gap-0 overflow-hidden p-0', wide && 'flex-row', className)}>
+      {PHASES.map((p, i) => (
         <View
-          className="absolute h-1.5 rounded-full bg-ok"
-          style={{ left: `${pct(lo, SCALE_MIN, SCALE_MAX)}%`, width: `${pct(hi, SCALE_MIN, SCALE_MAX) - pct(lo, SCALE_MIN, SCALE_MAX)}%`, opacity: 0.35 }}
-        />
-        {value !== null ? (
-          <View
-            className={cn('absolute h-4 w-1 -ml-0.5 rounded-full', inBand ? 'bg-foreground' : 'bg-destructive')}
-            style={{ left: `${pct(value, SCALE_MIN, SCALE_MAX)}%` }}
-          />
-        ) : null}
-      </View>
-      <View className="h-3">
-        {ticks.map((t) => (
-          <Text
-            key={t}
-            className="absolute -ml-4 w-8 text-center text-[10px] text-muted-foreground"
-            style={{ left: `${pct(t, SCALE_MIN, SCALE_MAX)}%` }}>
-            {Math.round(t)}
-          </Text>
-        ))}
-      </View>
-    </View>
+          key={p.phase}
+          className={cn(
+            'gap-4 p-5',
+            wide ? 'flex-1' : '',
+            i > 0 && (wide ? 'border-l border-border' : 'border-t border-border')
+          )}>
+          <View className="flex-row items-center justify-between gap-2">
+            <View className="flex-row items-center gap-2">
+              <View className={cn('size-3 rounded-[3px]', PHASE_BG[p.phase as Phase])} />
+              <Text className="font-display-bold text-lg">L{p.phase}</Text>
+            </View>
+            <Pressable
+              onPress={() => openMeasurement(p.line)}
+              className="flex-row items-baseline gap-2">
+              <Text className="text-sm text-muted-foreground">
+                L{p.phase}–L{(p.phase % 3) + 1}
+              </Text>
+              <Reading m={s[p.line]} size="sm" />
+            </Pressable>
+          </View>
+
+          <View className="flex-row gap-5">
+            <Pressable onPress={() => openMeasurement(p.voltage)} className="flex-1 gap-1">
+              <Text className="text-sm text-muted-foreground">Tensiune fază–neutru</Text>
+              <Reading m={s[p.voltage]} size="lg" />
+              <ErrorTag m={s[p.voltage]} />
+              <BandScale
+                band={bandFor(p.voltage)!}
+                value={valueOf(s[p.voltage])}
+                className="mt-1"
+              />
+            </Pressable>
+            <Pressable onPress={() => openMeasurement(p.current)} className="flex-1 gap-1">
+              <Text className="text-sm text-muted-foreground">Curent</Text>
+              <Reading m={s[p.current]} size="lg" />
+              <ErrorTag m={s[p.current]} />
+              <LoadBar
+                value={valueOf(s[p.current])}
+                rated={ratedCurrent}
+                phase={p.phase as Phase}
+                className="mt-1"
+              />
+            </Pressable>
+          </View>
+        </View>
+      ))}
+    </Card>
   );
 }
