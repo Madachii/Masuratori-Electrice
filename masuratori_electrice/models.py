@@ -47,3 +47,5 @@ class Measurement(BaseModel):
     raw: float
     unit: str
     device_id: int | None = Field(default=None, ge=1, le=247)
+    # Factory serial number, the stable identity of the counter (not its bus address).
+    counter_id: str | None = Field(default=None, max_length=64)

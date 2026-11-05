@@ -9,12 +9,31 @@ from unittest.mock import AsyncMock, patch
 from pymodbus.exceptions import ModbusException, ModbusIOException
 from pymodbus.pdu import ExceptionResponse
 
-from masuratori_electrice.health import check, decode_ascii
+from masuratori_electrice.health import check, decode_ascii, read_serial
 from masuratori_electrice.measurements import decode_energy, decode_float, read_all
 from masuratori_electrice.models import HealthStatus, SerialSettings
 from masuratori_electrice.reader import read
+from masuratori_electrice.simulator import SIMULATED_COUNTER_IDS, Simulator
 
 DEVICE_NAME = [0x4541, 0x544F, 0x4E20, 0x5058, 0x5232, 0x3500, 0x0000, 0x0000]
+SERIAL_NUMBER = [
+    0x3030,
+    0x3630,
+    0x3030,
+    0x3134,
+    0x3237,
+    0x3000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+]
 
 
 class _Response:
@@ -50,6 +69,22 @@ class _OpenClient:
 class DecodeTests(unittest.TestCase):
     def test_device_name(self) -> None:
         self.assertEqual(decode_ascii(DEVICE_NAME), "EATON PXR25")
+
+    def test_serial_number(self) -> None:
+        self.assertEqual(decode_ascii(SERIAL_NUMBER), "00600014270")
+
+
+class SerialTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reads_the_serial_number_register(self) -> None:
+        async def fake_read(client, address, count, device_id=2):
+            self.assertEqual(address, 4544)
+            self.assertEqual(count, 16)
+            return SERIAL_NUMBER
+
+        with patch("masuratori_electrice.health.read", new=fake_read):
+            serial = await read_serial(None, 7)
+
+        self.assertEqual(serial, "00600014270")
 
 
 class HealthTests(unittest.IsolatedAsyncioTestCase):
@@ -140,6 +175,32 @@ class ReadAllTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_name["power_factor"].unit, "")
         self.assertEqual(by_name["frequency"].unit, "Hz")
         self.assertEqual(by_name["active_energy_combined"].raw, 1.0)
+
+    async def test_counter_id_is_carried_by_every_value(self) -> None:
+        async def fake_read(client, address, count, device_id=2):
+            return [0, 0] if count == 2 else [0, 0, 0, 0]
+
+        with patch("masuratori_electrice.measurements.read", new=fake_read):
+            measurements = await read_all(None, device_id=7, counter_id="00600014270")
+
+        self.assertTrue(measurements)
+        self.assertTrue(
+            all(measurement.counter_id == "00600014270" for measurement in measurements)
+        )
+
+
+class SimulatorTests(unittest.TestCase):
+    def test_three_distinct_counter_ids(self) -> None:
+        self.assertEqual(len(SIMULATED_COUNTER_IDS), 3)
+        self.assertEqual(len(set(SIMULATED_COUNTER_IDS)), 3)
+
+    def test_every_simulated_value_carries_its_counter(self) -> None:
+        for counter_id in SIMULATED_COUNTER_IDS:
+            measurements = Simulator(counter_id=counter_id).next()
+            self.assertTrue(measurements)
+            self.assertTrue(
+                all(measurement.counter_id == counter_id for measurement in measurements)
+            )
 
 
 if __name__ == "__main__":

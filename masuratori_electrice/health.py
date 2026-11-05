@@ -9,7 +9,12 @@ from __future__ import annotations
 from pymodbus.client import AsyncModbusSerialClient
 from pymodbus.exceptions import ModbusException, ModbusIOException
 
-from .constants import DEVICE_NAME_ADDRESS, DEVICE_NAME_COUNT
+from .constants import (
+    DEVICE_NAME_ADDRESS,
+    DEVICE_NAME_COUNT,
+    SERIAL_NUMBER_ADDRESS,
+    SERIAL_NUMBER_COUNT,
+)
 from .models import HealthResult, HealthStatus, SerialSettings
 from .reader import read
 from .transport import available_ports, connect
@@ -29,6 +34,24 @@ async def identify(
         client,
         DEVICE_NAME_ADDRESS,
         DEVICE_NAME_COUNT,
+        device_id,
+    )
+    return decode_ascii(registers)
+
+
+async def read_serial(
+    client: AsyncModbusSerialClient,
+    device_id: int,
+) -> str:
+    """Read the factory serial number, used as the stable counter id.
+
+    The manual marks the field "if supported"; callers should treat an empty
+    string as "this unit has no usable serial number".
+    """
+    registers = await read(
+        client,
+        SERIAL_NUMBER_ADDRESS,
+        SERIAL_NUMBER_COUNT,
         device_id,
     )
     return decode_ascii(registers)

@@ -131,6 +131,7 @@ def decode_energy(registers: list[int]) -> float:
 async def read_all(
     client: AsyncModbusSerialClient,
     device_id: int = 2,
+    counter_id: str | None = None,
 ) -> list[Measurement]:
     measurements: list[Measurement] = []
 
@@ -147,6 +148,7 @@ async def read_all(
                 raw=value,
                 unit=field.unit,
                 device_id=device_id,
+                counter_id=counter_id or None,
             )
         )
 

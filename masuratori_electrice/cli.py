@@ -5,16 +5,17 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import random
 import time
 
 from .constants import DEVICE_NAME_ADDRESS, DEVICE_NAME_COUNT
-from .health import check, identify
+from .health import check, identify, read_serial
 from .measurements import read_all
 from .models import HealthResult, HealthStatus, SerialSettings
 from .reader import read
 from .scan import scan_port
 from .sender import send
-from .simulator import Simulator
+from .simulator import SIMULATED_COUNTER_IDS, Simulator
 from .transport import connect
 
 MESSAGES = {
@@ -199,12 +200,18 @@ async def _measure_units_async(
                     print(f"unit {unit:03d}: {identity!r} is not a PXR; skipping")
                     continue
 
-                measurements = await read_all(client, unit)
+                try:
+                    counter_id = await read_serial(client, unit)
+                except Exception as exc:
+                    print(f"unit {unit:03d}: serial number unavailable ({exc})")
+                    counter_id = None
+
+                measurements = await read_all(client, unit, counter_id=counter_id or None)
             except Exception as exc:
                 print(f"unit {unit:03d}: FAILED ({exc})")
                 continue
 
-            print(f"\nunit {unit:03d}  {identity}")
+            print(f"\nunit {unit:03d}  {identity}  contor {counter_id or '-'}")
             for measurement in measurements:
                 print(
                     f"{measurement.name:<24} "
@@ -237,13 +244,22 @@ async def _measure_async(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        measurements = await read_all(client, settings.device_id)
+        try:
+            counter_id = await read_serial(client, settings.device_id)
+        except Exception as exc:
+            print(f"serial number unavailable ({exc})")
+            counter_id = None
+
+        measurements = await read_all(
+            client, settings.device_id, counter_id=counter_id or None
+        )
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 2
     finally:
         client.close()
 
+    print(f"contor {counter_id or '-'}")
     for measurement in measurements:
         print(
             f"{measurement.name:<24} "
@@ -275,9 +291,14 @@ def _measure(args: argparse.Namespace) -> int:
 
 
 async def _simulate_async(args: argparse.Namespace) -> None:
-    simulator = Simulator()
+    # Independent simulators, so each fake serial keeps its own energy counters.
+    counter_ids = (
+        (args.counter_id,) if args.counter_id else SIMULATED_COUNTER_IDS
+    )
+    simulators = [Simulator(counter_id=counter_id) for counter_id in counter_ids]
     while True:
         started = time.monotonic()
+        simulator = random.choice(simulators)
         await send(simulator.next(), args.url)
         elapsed = time.monotonic() - started
         await asyncio.sleep(max(0.0, 1.0 - elapsed))
@@ -313,6 +334,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--address", type=int, default=DEVICE_NAME_ADDRESS)
     parser.add_argument("--count", type=int, default=DEVICE_NAME_COUNT)
     parser.add_argument("--url", help="REST endpoint (default: localhost:8000)")
+    parser.add_argument(
+        "--counter-id",
+        help="simulate only this counter (default: three random simulated counters)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 

@@ -7,6 +7,10 @@ address pymodbus puts on the wire: 404497 -> 4496.
 DEVICE_NAME_ADDRESS = 4496  # 404497, "EATON PXR20" / "EATON PXR25"
 DEVICE_NAME_COUNT = 8  # 16 ASCII characters
 
+# Device information, section 9.3.13 in the PXR manual.
+SERIAL_NUMBER_ADDRESS = 4544  # 404545, 0x11C0
+SERIAL_NUMBER_COUNT = 16  # 32 ASCII characters, "if supported"
+
 # Currents, IEEE float, two registers each.
 CURRENT_L1_ADDRESS = 4610  # 404611
 CURRENT_L2_ADDRESS = 4612  # 404613

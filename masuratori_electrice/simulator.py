@@ -13,9 +13,22 @@ from .measurements import FIELDS
 from .models import Measurement
 
 
+# Fake serials for testing several counters without hardware.
+SIMULATED_COUNTER_IDS = (
+    "SIM-PXR25-001",
+    "SIM-PXR25-002",
+    "SIM-PXR25-003",
+)
+
+
 class Simulator:
-    def __init__(self, rated_current: float = 100.0) -> None:
+    def __init__(
+        self,
+        rated_current: float = 100.0,
+        counter_id: str = SIMULATED_COUNTER_IDS[0],
+    ) -> None:
         self.rated_current = rated_current
+        self.counter_id = counter_id
         self.t = 0.0
         self.wh_forward = 12_000.0
         self.wh_reverse = 0.0
@@ -116,6 +129,7 @@ class Simulator:
                 name=field.name,
                 raw=round(values[field.name], 3),
                 unit=field.unit,
+                counter_id=self.counter_id,
             )
             for field in FIELDS
         ]
