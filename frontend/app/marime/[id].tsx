@@ -138,9 +138,9 @@ const RANGES: { value: SeriesRange; label: string }[] = [
  * from the readings since the app opened.
  */
 function TrendCard({ def }: { def: MeasurementDef }) {
-  const { readings } = useMeterContext();
+  const { meter, readings } = useMeterContext();
   const [range, setRange] = React.useState<SeriesRange>('all');
-  const backend = useBackendSeries(def, range, readings.updatedAt);
+  const backend = useBackendSeries(def, meter.id, range, readings.updatedAt);
   const values = backend ? backend.points.map((p) => p.v) : (readings.history[def.id] ?? []);
   const times = backend?.points.map((p) => p.at);
 
