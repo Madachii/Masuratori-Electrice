@@ -5,7 +5,7 @@ import type { Hint } from '@/lib/hints';
 import type { Measurement, MeasurementId } from '@/lib/measurements';
 import { openMeasurement } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 export type Stat = { id: MeasurementId; label: string; m?: Measurement; hint?: Hint };
 

@@ -27,10 +27,11 @@ export function useBackendSeries(
   refreshKey: unknown
 ): Series | null {
   const enabled = !!API_URL && hasSeries(def.id);
-  const [series, setSeries] = React.useState<Series>(EMPTY);
-
-  // Start over when the measurement or range changes; a new reading only refreshes in place.
-  React.useEffect(() => setSeries(EMPTY), [def.id, range]);
+  // What the stored series was fetched for. When the measurement or range changes it starts over
+  // empty; a new reading only refreshes it in place.
+  const key = `${def.id}|${range}`;
+  const [stored, setStored] = React.useState<{ key: string; series: Series }>({ key, series: EMPTY });
+  const series = stored.key === key ? stored.series : EMPTY;
 
   React.useEffect(() => {
     if (!enabled) return;
@@ -44,20 +45,26 @@ export function useBackendSeries(
         const points = raw
           .filter((p) => validate(def, p.raw, p.unit, { at: p.at }).ok)
           .map((p) => ({ at: p.at, v: p.raw }));
-        setSeries({ points, dropped: raw.length - points.length, loading: false, error: null });
+        setStored({
+          key,
+          series: { points, dropped: raw.length - points.length, loading: false, error: null },
+        });
       })
       .catch((e) => {
         if (alive)
-          setSeries((prev) => ({
-            ...prev,
-            loading: false,
-            error: e instanceof Error ? e.message : String(e),
+          setStored((prev) => ({
+            key,
+            series: {
+              ...(prev.key === key ? prev.series : EMPTY),
+              loading: false,
+              error: e instanceof Error ? e.message : String(e),
+            },
           }));
       });
     return () => {
       alive = false;
     };
-  }, [enabled, def, range, refreshKey]);
+  }, [enabled, def, range, key, refreshKey]);
 
   return enabled ? series : null;
 }

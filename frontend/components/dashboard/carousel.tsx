@@ -20,8 +20,10 @@ const GUTTER = 8;
 export function Carousel({ pages, label }: { pages: React.ReactNode[]; label: string }) {
   const ref = React.useRef<ScrollViewInstance>(null);
   const [width, setWidth] = React.useState(0);
-  const [page, setPage] = React.useState(0);
+  const [scrolledTo, setPage] = React.useState(0);
   const count = pages.length;
+  // A page may disappear when its measurements are removed; don't point past the end.
+  const page = Math.min(scrolledTo, Math.max(0, count - 1));
 
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -29,11 +31,6 @@ export function Carousel({ pages, label }: { pages: React.ReactNode[]; label: st
       setPage(Math.min(count - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / width))));
   };
   const goTo = (i: number) => ref.current?.scrollTo({ x: i * width, animated: true });
-
-  // A page may disappear when its measurements are removed; don't point past the end.
-  React.useEffect(() => {
-    if (page >= count) setPage(Math.max(0, count - 1));
-  }, [page, count]);
 
   return (
     <View className="gap-3">

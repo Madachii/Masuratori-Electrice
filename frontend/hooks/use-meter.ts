@@ -122,7 +122,7 @@ function extend(history: History, snapshot: Snapshot): History {
 
 /** Re-renders every `ms` so time labels stay current. */
 export function useNow(ms = 1000) {
-  const [now, setNow] = React.useState(Date.now());
+  const [now, setNow] = React.useState(Date.now);
   React.useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(id);

@@ -6,8 +6,9 @@ import { LIVE_METER, maxPowerW, type Meter } from '@/lib/meters';
 import * as React from 'react';
 
 export const POLL_MS = 5000;
-// The backend serves a single meter for now.
+// The backend serves a single meter for now, so every meter reads from the same source.
 export const AVAILABLE_METERS = [LIVE_METER];
+const source = createApiSource();
 
 type MeterContextValue = {
   meter: Meter;
@@ -28,15 +29,14 @@ const MeterContext = React.createContext<MeterContextValue | null>(null);
 /** Reads the selected meter once for the whole app, so every tab shows the same reading. */
 export function MeterProvider({ children }: { children: React.ReactNode }) {
   const [meter, setMeter] = React.useState(AVAILABLE_METERS[0]);
-  // One source per meter, so switching meters starts from a clean reading.
-  const source = React.useMemo(() => createApiSource(), [meter]);
   const readings = useMeter(source, POLL_MS, maxPowerW(meter));
   const loading = readings.updatedAt === null && !readings.error;
-  // Re-evaluated on every poll, which is often enough for the live badge.
+  // Live when the reading was recent at the last poll; polls come often enough for the badge.
   const live =
     readings.updatedAt !== null &&
+    readings.polledAt !== null &&
     !readings.error &&
-    Date.now() - readings.updatedAt < LIVE_WITHIN_MS;
+    readings.polledAt - readings.updatedAt < LIVE_WITHIN_MS;
 
   const available = React.useMemo(() => {
     const ids = Object.keys(readings.snapshot) as MeasurementId[];

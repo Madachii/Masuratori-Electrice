@@ -68,7 +68,7 @@ export function Reading({
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  const opacity = React.useRef(new Animated.Value(0.5)).current;
+  const [opacity] = React.useState(() => new Animated.Value(0.5));
   React.useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([

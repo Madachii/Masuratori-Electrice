@@ -27,9 +27,11 @@ export function useDashboardLayout() {
   const [undo, setUndo] = React.useState<Undo | null>(null);
   // The latest layout for the actions below, so they never act on a stale render.
   const current = React.useRef(layout);
-  current.current = layout;
   const lastUndo = React.useRef(undo);
-  lastUndo.current = undo;
+  React.useEffect(() => {
+    current.current = layout;
+    lastUndo.current = undo;
+  }, [layout, undo]);
 
   React.useEffect(() => {
     let alive = true;
