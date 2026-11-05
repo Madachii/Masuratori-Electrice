@@ -6,6 +6,7 @@
  * Without it the app has nowhere to read from and shows an error.
  */
 import type { MeasurementId } from '@/lib/measurements';
+import { DEFAULT_RATED_CURRENT, type Meter } from '@/lib/meters';
 import type { MeterSource, RawFrame } from '@/lib/source';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
@@ -56,27 +57,51 @@ const ID_TO_NAME = Object.fromEntries(
 /** Whether the backend keeps a history of this measurement. */
 export const hasSeries = (id: MeasurementId) => id in ID_TO_NAME;
 
+const NO_URL = 'Adresa backendului nu este setată (EXPO_PUBLIC_API_URL în .env.local)';
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Backendul a răspuns cu ${response.status}`);
+  return response.json();
+}
+
+type CounterOut = { id: number; code: string; name: string; rated_current: number | null };
+
+/** The counters the backend knows, in the order it lists them. */
+export async function fetchMeters(baseUrl = API_URL): Promise<Meter[]> {
+  if (!baseUrl) throw new Error(NO_URL);
+  const counters = await getJson<CounterOut[]>(`${baseUrl}/api/counters`);
+  return counters.map((c) => ({
+    id: c.code,
+    name: c.name || c.code,
+    ratedCurrent: c.rated_current ?? DEFAULT_RATED_CURRENT,
+  }));
+}
+
 /** One stored value of a measurement, as the backend returns it. */
 export type SeriesPoint = { at: number; raw: number; unit: string };
 
-/** The stored values of one measurement since `since` (ms), oldest first. */
+/** The stored values of one measurement of one counter since `since` (ms), oldest first. */
 export async function fetchSeries(
   id: MeasurementId,
+  counter: string,
   since: number | null,
   baseUrl = API_URL
 ): Promise<SeriesPoint[]> {
   const name = ID_TO_NAME[id];
   if (!name) return [];
-  const query = new URLSearchParams({ limit: '1000' });
+  const query = new URLSearchParams({ counter, limit: '1000' });
   if (since !== null) query.set('since', new Date(since).toISOString());
-  const response = await fetch(`${baseUrl}/api/measurements/${name}?${query}`);
-  if (!response.ok) throw new Error(`Backendul a răspuns cu ${response.status}`);
-  const points: { received_at: string; value: number; unit: string }[] = await response.json();
+  const points = await getJson<{ received_at: string; value: number; unit: string }[]>(
+    `${baseUrl}/api/measurements/${name}?${query}`
+  );
   return points.map((p) => ({ at: Date.parse(p.received_at), raw: p.value, unit: p.unit }));
 }
 
 type ReadingOut = {
   id: number;
+  /** The counter's code. */
+  counter: string;
   received_at: string;
   measurements: { name: string; value: number; unit: string }[];
 };
@@ -90,15 +115,19 @@ const toFrame = (reading: ReadingOut) => {
   return { frame, readAt: Date.parse(reading.received_at) };
 };
 
-export function createApiSource(baseUrl = API_URL): MeterSource {
+/** The readings of one counter, by its code. */
+export function createApiSource(counter: string, baseUrl = API_URL): MeterSource {
   return async () => {
-    if (!baseUrl) throw new Error('Adresa backendului nu este setată (EXPO_PUBLIC_API_URL în .env.local)');
+    if (!baseUrl) throw new Error(NO_URL);
     // The last two cycles, newest first: the one before is what the checks over time compare with.
-    const response = await fetch(`${baseUrl}/api/readings?limit=2`);
-    if (!response.ok) throw new Error(`Backendul a răspuns cu ${response.status}`);
+    const query = new URLSearchParams({ counter, limit: '2' });
+    const readings = await getJson<ReadingOut[]>(`${baseUrl}/api/readings?${query}`);
 
-    const [latest, before]: ReadingOut[] = await response.json();
-    if (!latest) throw new Error('Backendul nu are încă nicio citire');
+    // A backend that ignores `counter` would hand over every counter's readings mixed together.
+    if (readings.some((r) => r.counter !== counter))
+      throw new Error('Backendul nu separă citirile pe contoare; actualizează-l');
+    const [latest, before] = readings;
+    if (!latest) throw new Error('Contorul nu are încă nicio citire');
     return { ...toFrame(latest), previous: before ? toFrame(before) : undefined };
   };
 }

@@ -2,7 +2,7 @@ import { Screen, ScreenTitle } from '@/components/screen';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { AVAILABLE_METERS, useMeterContext } from '@/hooks/meter-context';
+import { useMeterContext } from '@/hooks/meter-context';
 import { useNow } from '@/hooks/use-meter';
 import { ago } from '@/lib/format';
 import { LOCATION, type Meter } from '@/lib/meters';
@@ -20,10 +20,11 @@ const SEARCH_FROM = 6;
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export default function Meters() {
-  const { meter: selected, setMeter } = useMeterContext();
+  const { meter: selected, meters, setMeter, readings } = useMeterContext();
   const [query, setQuery] = React.useState('');
   const { colorScheme } = useColorScheme();
-  const shown = AVAILABLE_METERS.filter((m) => normalize(m.name).includes(normalize(query.trim())));
+  const q = normalize(query.trim());
+  const shown = meters.filter((m) => normalize(m.name).includes(q) || normalize(m.id).includes(q));
 
   const choose = (m: Meter) => {
     setMeter(m);
@@ -34,7 +35,7 @@ export default function Meters() {
     <Screen>
       <ScreenTitle title="Contoare" subtitle={LOCATION} />
 
-      {AVAILABLE_METERS.length >= SEARCH_FROM ? (
+      {meters.length >= SEARCH_FROM ? (
         <View className="h-14 flex-row items-center gap-3 rounded-2xl border border-border bg-card px-4">
           <Icon as={SearchIcon} className="size-5 text-muted-foreground" />
           <TextInput
@@ -51,7 +52,9 @@ export default function Meters() {
 
       {shown.length === 0 ? (
         <Card className="items-center p-8">
-          <Text className="text-muted-foreground">Niciun contor găsit</Text>
+          <Text className="text-center text-muted-foreground">
+            {meters.length === 0 ? (readings.error ?? 'Se încarcă contoarele…') : 'Niciun contor găsit'}
+          </Text>
         </Card>
       ) : (
         <Card className="gap-0 overflow-hidden p-0">
@@ -91,11 +94,9 @@ function MeterRow({
         !first && 'border-t border-border',
         selected ? 'bg-primary-soft' : 'active:bg-muted web:hover:bg-muted/50'
       )}>
-      {meter.model ? (
-        <View className="size-12 items-center justify-center rounded-2xl bg-primary-soft">
-          <Icon as={GaugeIcon} className="size-6 text-primary" />
-        </View>
-      ) : null}
+      <View className="size-12 items-center justify-center rounded-2xl bg-primary-soft">
+        <Icon as={GaugeIcon} className="size-6 text-primary" />
+      </View>
       <View className="flex-1 gap-0.5">
         <Text className={cn('text-lg', selected && 'font-semibold')}>{meter.name}</Text>
         {selected ? (
@@ -109,8 +110,11 @@ function MeterRow({
   );
 }
 
-const subtitle = (m: Meter) =>
-  m.model ? `${m.model} · ${m.ratedCurrent} A` : `${m.ratedCurrent} A nominal`;
+/** The model or the counter's code (when the name does not already say it), and the rated current. */
+const subtitle = (m: Meter) => {
+  const what = m.model ?? (normalize(m.name).includes(normalize(m.id)) ? null : m.id);
+  return what ? `${what} · ${m.ratedCurrent} A` : `${m.ratedCurrent} A nominal`;
+};
 
 /** The selected meter also says when it was last read. */
 function ReadStatus({ meter }: { meter: Meter }) {
